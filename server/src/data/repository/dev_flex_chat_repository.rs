@@ -14,7 +14,24 @@
  * limitations under the License.
  */
 
-pub(crate) mod data;
-pub mod model;
-pub mod prelude;
-pub mod server;
+use std::path::PathBuf;
+
+pub struct DevFlexChatRepository {
+    database_path: PathBuf,
+}
+
+impl Default for DevFlexChatRepository {
+    fn default() -> Self {
+        Self {
+            database_path: PathBuf::new(),
+        }
+    }
+}
+
+impl DevFlexChatRepository {
+    pub fn new<T: Into<PathBuf>>(database_path: T) -> Self {
+        Self {
+            database_path: database_path.into(),
+        }
+    }
+}

@@ -1,8 +1,12 @@
 [package]
-name = "server"
+name = "chat"
 version = "0.1.0"
 authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
 edition = "2018"
+description = "Chat server"
+documentation = "https://github.com/sukawasatoru/chat"
+homepage = "https://github.com/sukawasatoru/chat"
+repository = "https://github.com/sukawasatoru/chat.git"
 
 [dependencies]
 dotenv = "=0.15.0"
@@ -15,6 +19,7 @@ futures = "=0.1.29"
 # v0.12.x for juniper v0.14.x
 hyper = "=0.12.35"
 juniper = "=0.14.2"
+juniper_hyper = "=0.5.2"
 log = "=0.4.8"
 
 # v0.9.x for juniper v0.14.x

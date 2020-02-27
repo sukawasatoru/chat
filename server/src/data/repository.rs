@@ -14,7 +14,4 @@
  * limitations under the License.
  */
 
-pub(crate) mod data;
-pub mod model;
-pub mod prelude;
-pub mod server;
+pub mod dev_flex_chat_repository;

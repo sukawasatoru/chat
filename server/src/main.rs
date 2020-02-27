@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use log::{debug, info};
 use structopt::StructOpt;
 
-use server::prelude::*;
+use chat::prelude::*;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -53,6 +53,14 @@ fn main() -> Fallible<()> {
     print_env();
 
     let opt: Opt = Opt::from_args();
+
+    match opt.cmd {
+        Command::Server {
+            database,
+            address,
+            hostname,
+        } => chat::server::server(database, address, hostname)?,
+    }
 
     info!("Bye");
 
