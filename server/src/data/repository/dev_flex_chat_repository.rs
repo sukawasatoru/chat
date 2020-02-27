@@ -16,22 +16,35 @@
 
 use std::path::PathBuf;
 
+use crate::data::db::dev_flex_chat_database::DevFlexChatDatabase;
+// TODO: use model.
+use crate::data::db::entity::dev_flex_chat_entity::CommentEntity;
+use crate::prelude::*;
+
 pub struct DevFlexChatRepository {
     database_path: PathBuf,
-}
-
-impl Default for DevFlexChatRepository {
-    fn default() -> Self {
-        Self {
-            database_path: PathBuf::new(),
-        }
-    }
+    database: DevFlexChatDatabase,
 }
 
 impl DevFlexChatRepository {
     pub fn new<T: Into<PathBuf>>(database_path: T) -> Self {
+        let database_path = database_path.into();
+
         Self {
-            database_path: database_path.into(),
+            database_path: database_path.to_owned(),
+            database: DevFlexChatDatabase::new(database_path),
         }
+    }
+
+    pub fn retrieve_all(&self) -> Fallible<Vec<CommentEntity>> {
+        self.database.retrieve_all()
+    }
+
+    pub fn retrieve_first(&self, count: u32) -> Fallible<Vec<CommentEntity>> {
+        self.database.retrieve_first_created_at_desc(count)
+    }
+
+    pub fn save_comment<T: Into<CommentEntity>>(&self, comment: T) -> Fallible<()> {
+        self.database.save_comment(comment)
     }
 }

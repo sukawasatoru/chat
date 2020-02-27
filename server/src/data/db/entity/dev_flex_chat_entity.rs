@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-pub(crate) mod data;
-pub(crate) mod feature;
-pub mod model;
-pub mod prelude;
-pub mod server;
+use serde_derive::{Deserialize, Serialize};
+
+#[derive(Deserialize, Serialize)]
+pub struct CommentEntity {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub message: String,
+}

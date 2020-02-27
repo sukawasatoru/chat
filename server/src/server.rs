@@ -20,11 +20,12 @@ use std::sync::Arc;
 use futures::Future;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, StatusCode};
-use juniper::graphql_object;
+use juniper::FieldResult;
 use log::{error, info, warn};
 use url::Url;
 
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
+use crate::feature::dev_flex_chat::{self, Comment, CommentInput, CommentResponse};
 use crate::prelude::*;
 
 type BoxFut = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
@@ -56,11 +57,22 @@ impl Default for Query {
     }
 }
 
-graphql_object!(Query: Context |&self| {
-    field apiVersion() -> &str {
+#[juniper::object(Context = Context)]
+impl Query {
+    fn api_version() -> &str {
         "0.1"
     }
-});
+
+    fn comments(context: &Context, first: i32) -> FieldResult<Vec<Comment>> {
+        match dev_flex_chat::comments(&context.chat_repo, first) {
+            Ok(data) => Ok(data),
+            Err(e) => {
+                warn!("failed to retrieve comment: {:?}", e);
+                Err(e)
+            }
+        }
+    }
+}
 
 struct Mutation {
     #[allow(dead_code)]
@@ -75,14 +87,25 @@ impl Default for Mutation {
     }
 }
 
-graphql_object!(Mutation: Context |&self| {
-    field apiVersion() -> &str {
+#[juniper::object(Context = Context)]
+impl Mutation {
+    fn api_version() -> &str {
         "0.1"
     }
-});
+
+    fn add_comment(context: &Context, comment: CommentInput) -> FieldResult<CommentResponse> {
+        match dev_flex_chat::add_comment(&context.chat_repo, comment) {
+            Ok(data) => Ok(data),
+            Err(e) => {
+                warn!("failed to execute the add_comment: {:?}", e);
+                Err(e)
+            }
+        }
+    }
+}
 
 pub fn server(database: Option<PathBuf>, address: String, hostname: String) -> Fallible<()> {
-    let database_path = database.unwrap_or(PathBuf::new());
+    let database_path = database.unwrap_or(std::path::Path::new("database.toml").to_owned());
     let socket_address = address.parse()?;
     info!("database_path: {:?}", database_path);
     info!("socket_address: {:?}", socket_address);
@@ -124,7 +147,7 @@ fn on_request(
 
     let url = Url::parse(&format!("http://authority{}", req.uri()))?;
     match (req.method(), url.path_segments().ok_or_err()?.next()) {
-        (&Method::GET, Some("graphiql")) => Ok(Box::new(juniper_hyper::graphiql("/graphiql").map(
+        (&Method::GET, Some("graphiql")) => Ok(Box::new(juniper_hyper::graphiql("/graphql").map(
             |mut data| {
                 data.headers_mut().append(
                     hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
