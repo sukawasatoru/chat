@@ -16,4 +16,3 @@
 
 pub mod dev_flex_chat_database;
 pub mod entity;
-pub mod toml_loader;
