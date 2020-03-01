@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 sukawasatoru
+ * Copyright 2019, 2020 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 'use strict';
 
 const path = require('path');
+const DotenvWebpack = require('dotenv-webpack');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
@@ -39,6 +40,7 @@ let config = {
     plugins: [
         new HtmlWebpackPlugin({template: './src/index.html'}),
         new ForkTsCheckerWebpackPlugin(),
+        new DotenvWebpack(),
     ],
     resolve: {
         modules: ['node_modules'],
