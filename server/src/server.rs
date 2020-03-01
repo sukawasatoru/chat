@@ -147,36 +147,20 @@ fn on_request(
 
     let url = Url::parse(&format!("http://authority{}", req.uri()))?;
     match (req.method(), url.path_segments().ok_or_err()?.next()) {
-        (&Method::GET, Some("graphiql")) => Ok(Box::new(juniper_hyper::graphiql("/graphql").map(
-            |mut data| {
-                data.headers_mut().append(
-                    hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                    hyper::header::HeaderValue::from_str("*").unwrap(),
-                );
-                data
-            },
-        ))),
+        (&Method::GET, Some("graphiql")) => Ok(Box::new(
+            juniper_hyper::graphiql("/graphql").map(append_access_control_allow_origin_all),
+        )),
         (&Method::OPTIONS, Some("graphql")) => {
             warn!("TODO: Support OPTIONS method for juniper");
             Err(failure::format_err!("TODO: Support OPTIONS method"))
         }
         (&Method::GET, Some("graphql")) => Ok(Box::new(
-            juniper_hyper::graphql(root_node, context, req).map(|mut data| {
-                data.headers_mut().append(
-                    hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                    hyper::header::HeaderValue::from_str("*").unwrap(),
-                );
-                data
-            }),
+            juniper_hyper::graphql(root_node, context, req)
+                .map(append_access_control_allow_origin_all),
         )),
         (&Method::POST, Some("graphql")) => Ok(Box::new(
-            juniper_hyper::graphql(root_node, context, req).map(|mut data| {
-                data.headers_mut().append(
-                    hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                    hyper::header::HeaderValue::from_str("*").unwrap(),
-                );
-                data
-            }),
+            juniper_hyper::graphql(root_node, context, req)
+                .map(append_access_control_allow_origin_all),
         )),
         _ => {
             info!("404");
@@ -185,4 +169,12 @@ fn on_request(
             Ok(Box::new(futures::future::ok(response)))
         }
     }
+}
+
+fn append_access_control_allow_origin_all(mut response: Response<Body>) -> Response<Body> {
+    response.headers_mut().append(
+        hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        "*".parse().unwrap(),
+    );
+    response
 }
