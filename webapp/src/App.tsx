@@ -15,19 +15,20 @@
  */
 
 import {default as React} from 'react';
-import {Col, Container, Row} from "react-bootstrap";
-import 'bootstrap/dist/css/bootstrap.min.css';
-import 'material-design-icons/iconfont/material-icons.css';
+import {Fabric} from 'office-ui-fabric-react/lib/Fabric';
+import {Icon} from 'office-ui-fabric-react/lib/Icon';
+import {initializeIcons} from 'office-ui-fabric-react/lib/Icons';
 import './App.css';
 
+initializeIcons();
+
 const App = () => {
-    return <Container>
-        <Row>
-            <Col>
-                Hello
-            </Col>
-        </Row>
-    </Container>;
+    return (
+        <Fabric>
+            <Icon iconName={'Home'} />
+            Hello
+        </Fabric>
+    );
 };
 
 export default App;
