@@ -15,7 +15,7 @@
  */
 
 import {default as React, useCallback, useState} from 'react';
-import {Fabric, Icon, initializeIcons, PrimaryButton} from 'office-ui-fabric-react';
+import {Fabric, Icon, initializeIcons, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
 import './App.css';
 
 initializeIcons();
@@ -60,9 +60,7 @@ query($first: Int!){
     message
   }
 }
-`, {
-            first: 100
-        });
+`, {first: 100});
 
         if (!response.ok) {
             console.log(response);
@@ -72,11 +70,30 @@ query($first: Int!){
         const payload: CommentsResponse = await response.json();
         return payload.data.comments.map(data => `name: ${data.name}, message: ${data.message}`);
     }
+
+    public async addComments(userName: string, message: string): Promise<void> {
+        const response = await graphQLRequest(this.graphQLURL, `
+mutation ($name: String!, $message: String!) {
+  addComment(comment: {name: $name, message: $message}) {
+    id
+    name
+    message
+  }
+}
+`, {name: userName, message});
+
+        if (!response.ok) {
+            console.log(response);
+            throw new Error(`failed to send comment`);
+        }
+    }
 }
 
 const App = () => {
     const chat = new ChatServer(process.env.GRAPHQL_ENDPOINT);
     const [comments, setComments] = useState<string[]>([]);
+    const [userName, setUserName] = useState('');
+    const [message, setMessage] = useState('');
     const onRetrieveCommentsClicked = useCallback(() => {
         const task = async (): Promise<void> => {
             setComments(await chat.retrieveComments());
@@ -84,15 +101,28 @@ const App = () => {
         // noinspection JSIgnoredPromiseFromCall
         task();
     }, [chat, setComments]);
+    const onSendClick = useCallback(() => {
+        const task = async (): Promise<void> => {
+            await chat.addComments(userName, message);
+        };
+        // noinspection JSIgnoredPromiseFromCall
+        task();
+    }, [chat, userName, message]);
     return (
         <Fabric>
             <Icon iconName={'Home'}/>
             Hello
             <br/>
             <PrimaryButton onClick={onRetrieveCommentsClicked}>Retrieve Comment</PrimaryButton>
+            <Stack tokens={{childrenGap: 15}} horizontal>
+                <TextField label={'name'} onChange={(e: any, value?: string) => setUserName(value ? value : '')}/>
+                <TextField label={'message'}
+                           onChange={(e: any, value?: string) => setMessage(value ? value : '')}/>
+            </Stack>
+            <PrimaryButton onClick={onSendClick}>Send</PrimaryButton>
             {comments.map((data) =>
                 // TODO: key
-                <div key={Math.random()}>{data}<br/></div>
+                <Stack key={Math.random()}>{data}</Stack>
             )}
         </Fabric>
     );
