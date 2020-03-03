@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-use std::io::{BufReader, BufWriter};
 use std::io::prelude::*;
+use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, Mutex};
 
 use log::info;
 use serde_derive::{Deserialize, Serialize};
@@ -26,6 +28,7 @@ use crate::prelude::*;
 
 pub struct DevFlexChatDatabase {
     database_path: PathBuf,
+    comment_senders: Mutex<Vec<Sender<CommentEntity>>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -37,15 +40,28 @@ impl DevFlexChatDatabase {
     pub fn new<T: Into<PathBuf>>(database_path: T) -> Self {
         Self {
             database_path: database_path.into(),
+            comment_senders: Default::default(),
         }
     }
 
     pub fn save_comment<T: Into<CommentEntity>>(&self, entity: T) -> Fallible<()> {
+        let entity = entity.into();
         let mut table = self.retrieve()?;
-        table.comments.push(entity.into());
+        table.comments.push(entity.clone());
         let file = std::fs::File::create(&self.database_path)?;
         let mut writer = BufWriter::new(file);
-        Ok(writer.write_all(&toml::to_vec(&table)?)?)
+        writer.write_all(&toml::to_vec(&table)?)?;
+
+        match self.comment_senders.lock() {
+            Ok(mut senders) => {
+                for tx in senders.iter() {
+                    tx.send(entity.clone())?;
+                }
+                senders.clear();
+                Ok(())
+            }
+            Err(e) => failure::bail!("failed to send entity: {:?}", e),
+        }
     }
 
     pub fn retrieve_after(&self, id: uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
@@ -55,6 +71,7 @@ impl DevFlexChatDatabase {
         for comment in table.comments {
             if !found && comment.id == id {
                 found = true;
+                continue;
             }
 
             if found {
@@ -62,7 +79,33 @@ impl DevFlexChatDatabase {
                 continue;
             }
         }
-        Ok(ret)
+        if found {
+            Ok(ret)
+        } else {
+            failure::bail!("id not found: {:?}", id)
+        }
+    }
+
+    pub fn retrieve_after_long_polling(&self, id: uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
+        let mut ret_retrieve_after = self.retrieve_after(id)?;
+
+        if !ret_retrieve_after.is_empty() {
+            return Ok(ret_retrieve_after);
+        }
+
+        Ok(vec![self.long_polling()?])
+    }
+
+    pub fn long_polling(&self) -> Fallible<CommentEntity> {
+        let (tx, rx) = channel();
+        match self.comment_senders.lock() {
+            Ok(mut senders) => {
+                senders.push(tx);
+            }
+            Err(e) => failure::bail!("failed to long polling: {:?}", e),
+        }
+
+        Ok(rx.recv()?)
     }
 
     pub fn retrieve_first_created_at_desc(&self, count: u32) -> Fallible<Vec<CommentEntity>> {
@@ -72,15 +115,10 @@ impl DevFlexChatDatabase {
         for _ in 0..count {
             match comments.pop() {
                 Some(data) => ret.push(data),
-                None => return Ok(ret)
+                None => return Ok(ret),
             }
         }
         Ok(ret)
-    }
-
-    pub fn retrieve_all(&self) -> Fallible<Vec<CommentEntity>> {
-        let table = self.retrieve()?;
-        Ok(table.comments)
     }
 
     fn retrieve(&self) -> Fallible<DevFlexChatTable> {

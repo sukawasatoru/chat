@@ -36,12 +36,16 @@ impl DevFlexChatRepository {
         }
     }
 
-    pub fn retrieve_all(&self) -> Fallible<Vec<CommentEntity>> {
-        self.database.retrieve_all()
-    }
-
     pub fn retrieve_first(&self, count: u32) -> Fallible<Vec<CommentEntity>> {
         self.database.retrieve_first_created_at_desc(count)
+    }
+
+    pub fn retrieve_after_long_polling(&self, id: uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
+        self.database.retrieve_after_long_polling(id)
+    }
+
+    pub fn long_polling(&self) -> Fallible<CommentEntity> {
+        self.database.long_polling()
     }
 
     pub fn save_comment<T: Into<CommentEntity>>(&self, comment: T) -> Fallible<()> {

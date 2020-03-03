@@ -14,11 +14,18 @@
  * limitations under the License.
  */
 
-use serde_derive::{Deserialize, Serialize};
+export class ChatComment {
+    readonly id: string;
+    readonly name: string;
+    readonly message: string;
 
-#[derive(Clone, Deserialize, Serialize)]
-pub struct CommentEntity {
-    pub id: uuid::Uuid,
-    pub name: String,
-    pub message: String,
+    public constructor(obj: { id: string; name: string; message: string }) {
+        this.id = obj.id;
+        this.name = obj.name;
+        this.message = obj.message;
+    }
+
+    public toString(): string {
+        return `ChatComment {id: ${this.id}, name: ${this.name}, message: ${this.message}}`;
+    }
 }

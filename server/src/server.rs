@@ -72,6 +72,18 @@ impl Query {
             }
         }
     }
+
+    fn comments_long_polling(context: &Context, id: Option<String>) -> FieldResult<Vec<Comment>> {
+        match id {
+            Some(id) => {
+                dev_flex_chat::comments_after_long_polling(&context.chat_repo, id).map_err(|e| {
+                    warn!("failed to long polling comment: {:?}", e);
+                    e
+                })
+            }
+            None => dev_flex_chat::long_polling(&context.chat_repo).map(|data| vec![data]),
+        }
+    }
 }
 
 struct Mutation {

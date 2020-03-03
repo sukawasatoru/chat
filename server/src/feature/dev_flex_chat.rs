@@ -17,10 +17,10 @@
 use std::convert::TryInto;
 
 use juniper::{graphql_value, FieldError, FieldResult, GraphQLInputObject, GraphQLObject};
+use log::warn;
 
 use crate::data::db::entity::dev_flex_chat_entity::CommentEntity;
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
-use log::warn;
 
 #[derive(GraphQLObject)]
 pub struct Comment {
@@ -67,11 +67,55 @@ pub fn comments(repo: &DevFlexChatRepository, first: i32) -> FieldResult<Vec<Com
         .collect::<Vec<_>>())
 }
 
+pub fn comments_after_long_polling(
+    repo: &DevFlexChatRepository,
+    id: String,
+) -> FieldResult<Vec<Comment>> {
+    let id = id.parse().map_err(|e| {
+        FieldError::new(
+            e,
+            graphql_value!({"internal_error": "failed to convert to UUID"}),
+        )
+    })?;
+    Ok(repo
+        .retrieve_after_long_polling(id)
+        .map_err(|e| {
+            FieldError::new(
+                e,
+                graphql_value!({"internal_error": "failed to long polling"}),
+            )
+        })?
+        .into_iter()
+        .map(|entity| Comment {
+            id: entity.id.to_string(),
+            name: entity.name,
+            message: entity.message,
+        })
+        .collect::<Vec<_>>())
+}
+
+pub fn long_polling(repo: &DevFlexChatRepository) -> FieldResult<Comment> {
+    Ok(repo
+        .long_polling()
+        .map_err(|e| {
+            FieldError::new(
+                e,
+                graphql_value!({"internal_error": "failed to long polling"}),
+            )
+        })
+        .map(|entity| Comment {
+            id: entity.id.to_string(),
+            name: entity.name,
+            message: entity.message,
+        })?)
+}
+
 pub fn add_comment(
     repo: &DevFlexChatRepository,
     comment: CommentInput,
 ) -> FieldResult<CommentResponse> {
     let id = uuid::Uuid::new_v4();
+    // TODO: check conflict of a uuid.
     repo.save_comment(CommentEntity {
         id: id.clone(),
         name: comment.name.to_owned(),
