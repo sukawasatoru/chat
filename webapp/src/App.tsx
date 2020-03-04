@@ -19,7 +19,7 @@ import {Fabric, Icon, initializeIcons, PrimaryButton, Stack, TextField} from 'of
 import {ChatRepository} from '@/data/repository/chat-repository';
 import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatComment} from '@/model/chat-models';
-import './App.css';
+import '@/App.css';
 
 initializeIcons();
 
