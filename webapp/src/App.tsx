@@ -16,9 +16,9 @@
 
 import {default as React, useCallback, useEffect, useState} from 'react';
 import {Fabric, Icon, initializeIcons, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
-import {ChatRepository} from './data/repository/chat-repository';
-import {ChatDataSourceImpl} from './data/api/chat-data-source-impl';
-import {ChatComment} from './model/chat-models';
+import {ChatRepository} from '@/data/repository/chat-repository';
+import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
+import {ChatComment} from '@/model/chat-models';
 import './App.css';
 
 initializeIcons();

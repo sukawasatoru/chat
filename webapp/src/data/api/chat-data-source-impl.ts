@@ -19,7 +19,7 @@ import {
     ChatDataSource,
     CommentsResponse,
     RetrieveCommentsWithLongPollingResponse
-} from './chat-data-source';
+} from '@/data/api/chat-data-source';
 
 // TODO: use apollo.
 const graphQLRequest = (url: string, query: string, variables: object): Promise<Response> => {

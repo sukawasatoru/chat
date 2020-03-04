@@ -14,6 +14,9 @@
     "baseUrl": "src",
     "newLine": "LF",
     "noEmit": true,
+    "paths": {
+      "@/*": ["*"]
+    },
     "strict": true
   },
   "include": [

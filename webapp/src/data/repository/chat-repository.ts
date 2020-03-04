@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import {ChatDataSource} from '../api/chat-data-source';
-import {ChatComment} from '../../model/chat-models';
+import {ChatDataSource} from '@/data/api/chat-data-source';
+import {ChatComment} from '@/model/chat-models';
 
 
 export class ChatRepository {
