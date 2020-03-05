@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {default as React, useCallback, useEffect, useState} from 'react';
-import {Fabric, Icon, initializeIcons, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
-import {ChatRepository} from '@/data/repository/chat-repository';
-import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
-import {ChatComment} from '@/model/chat-models';
 import '@/App.css';
+import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
+import {ChatRepository} from '@/data/repository/chat-repository';
+import {ChatComment} from '@/model/chat-models';
+import {Fabric, Icon, initializeIcons, List, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
+import {default as React, FunctionComponentElement, useCallback, useEffect, useState} from 'react';
 
 initializeIcons();
 
@@ -44,7 +44,21 @@ class RetryCounter {
     }
 }
 
-const App = () => {
+const renderCell = (item?: ChatComment, index?: number, isScrolling?: boolean): React.ReactNode => {
+    if (!item) {
+        return <div>(none)</div>;
+    }
+
+    return (
+        <div>
+            name: {item.name}, {item.message}
+        </div>
+    );
+};
+
+const getCommentKey = (item?: ChatComment, index?: number): string => item ? item.id : 'none';
+
+const App = (): FunctionComponentElement<unknown> => {
     const chat = new ChatRepository(new ChatDataSourceImpl(process.env.GRAPHQL_ENDPOINT));
     const [comments, setComments] = useState<ChatComment[]>([]);
     const initialUserName = localStorage.getItem('userName');
@@ -124,9 +138,7 @@ const App = () => {
                            onChange={(e: any, value?: string) => setMessage(value ? value : '')}/>
             </Stack>
             <PrimaryButton onClick={onSendClick}>Send</PrimaryButton>
-            {comments.map((data) =>
-                <Stack key={data.id}>{`name: ${data.name}, ${data.message}`}</Stack>
-            )}
+            <List getKey={getCommentKey} items={comments} onRenderCell={renderCell}/>
         </Fabric>
     );
 };
