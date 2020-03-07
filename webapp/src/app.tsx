@@ -18,7 +18,7 @@ import '@/app.css';
 import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
 import {ChatComment} from '@/model/chat-models';
-import {Fabric, Icon, initializeIcons, List, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
+import {Fabric, initializeIcons, List, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
 import {default as React, FunctionComponentElement, useCallback, useEffect, useState} from 'react';
 
 initializeIcons();
@@ -127,10 +127,6 @@ const App = (): FunctionComponentElement<unknown> => {
 
     return (
         <Fabric>
-            <Icon iconName={'Home'}/>
-            Hello
-            <br/>
-            <PrimaryButton onClick={onRetrieveCommentsClicked}>Retrieve Comment</PrimaryButton>
             <Stack tokens={{childrenGap: 15}} horizontal>
                 <TextField label={'name'} defaultValue={userName}
                            onChange={(e: any, value?: string) => setUserName(value ? value : '')}/>
