@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import '@/App.css';
+import '@/app.css';
 import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
 import {ChatComment} from '@/model/chat-models';
