@@ -19,7 +19,7 @@ import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
 import {ChatComment} from '@/model/chat-models';
 import {Fabric, initializeIcons, List, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
-import {default as React, FunctionComponentElement, useCallback, useEffect, useState} from 'react';
+import {default as React, FunctionComponentElement, KeyboardEvent, useCallback, useEffect, useState} from 'react';
 
 initializeIcons();
 
@@ -65,25 +65,18 @@ const App = (): FunctionComponentElement<unknown> => {
     const [userName, setUserName] = useState(initialUserName ? initialUserName : '');
     const [message, setMessage] = useState('');
 
-    const onRetrieveCommentsClicked = useCallback(() => {
-        const task = async (): Promise<void> => {
-            setComments(await chat.retrieveComments());
-        };
-        // noinspection JSIgnoredPromiseFromCall
-        task();
-    }, [chat, setComments]);
-
     const onSendClick = useCallback(() => {
         const task = async (): Promise<void> => {
             try {
                 await chat.addComment(userName, message);
+                setMessage('');
             } catch (e) {
                 console.log(`failed to send comment: ${e}`);
             }
         };
         // noinspection JSIgnoredPromiseFromCall
         task();
-    }, [chat, userName, message]);
+    }, [chat, userName, message, setMessage]);
 
     useEffect(() => {
         const retryCounter = new RetryCounter();
@@ -124,6 +117,12 @@ const App = (): FunctionComponentElement<unknown> => {
     }, []);
 
     useEffect(() => localStorage.setItem("userName", userName), [userName]);
+    const noMessageKeyDown = useCallback((ev: KeyboardEvent) => {
+        if (ev.key == 'Enter') {
+            onSendClick();
+            ev.stopPropagation();
+        }
+    }, [onSendClick]);
 
     return (
         <Fabric>
@@ -131,7 +130,9 @@ const App = (): FunctionComponentElement<unknown> => {
                 <TextField label={'name'} defaultValue={userName}
                            onChange={(e: any, value?: string) => setUserName(value ? value : '')}/>
                 <TextField label={'message'}
-                           onChange={(e: any, value?: string) => setMessage(value ? value : '')}/>
+                           onChange={(e: any, value?: string) => setMessage(value ? value : '')}
+                           onKeyDown={noMessageKeyDown}
+                           value={message}/>
             </Stack>
             <PrimaryButton onClick={onSendClick}>Send</PrimaryButton>
             <List getKey={getCommentKey} items={comments} onRenderCell={renderCell}/>
