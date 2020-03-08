@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use crate::data::db::dev_flex_chat_database::DevFlexChatDatabase;
 // TODO: use model.
 use crate::data::db::entity::dev_flex_chat_entity::CommentEntity;
+use crate::model::juniper_object::OrderDirection;
 use crate::prelude::*;
 
 pub struct DevFlexChatRepository {
@@ -36,12 +37,24 @@ impl DevFlexChatRepository {
         }
     }
 
-    pub fn retrieve_first(&self, count: u32) -> Fallible<Vec<CommentEntity>> {
-        self.database.retrieve_first_created_at_desc(count)
+    pub fn retrieve_first(
+        &self,
+        count: u32,
+        order_direction: &OrderDirection,
+    ) -> Fallible<Vec<CommentEntity>> {
+        match order_direction {
+            OrderDirection::ASC => self.database.retrieve_first_created_at_asc(count),
+            OrderDirection::DESC => self.database.retrieve_first_created_at_desc(count),
+        }
     }
 
-    pub fn retrieve_after_long_polling(&self, id: uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
-        self.database.retrieve_after_long_polling(id)
+    pub fn retrieve_after_long_polling(
+        &self,
+        id: &uuid::Uuid,
+        order_direction: &OrderDirection,
+    ) -> Fallible<Vec<CommentEntity>> {
+        self.database
+            .retrieve_after_long_polling(id, order_direction)
     }
 
     pub fn long_polling(&self) -> Fallible<CommentEntity> {

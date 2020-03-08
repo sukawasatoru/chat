@@ -63,14 +63,14 @@ mutation ($name: String!, $message: String!) {
 
     async retrieveComments(): Promise<CommentsResponse> {
         const response = await graphQLRequest(this.graphQLURL, `
-query($first: Int!){
-  comments(first: $first) {
+query($first: Int!, $direction: OrderDirection!){
+  comments(first: $first, orderBy: {direction: $direction}) {
     id
     name
     message
   }
 }
-`, {first: 100});
+`, {first: 100, direction: 'ASC'});
 
         if (!response.ok) {
             console.log(response);
@@ -82,13 +82,13 @@ query($first: Int!){
 
     async retrieveCommentsWithLongPolling(lastID?: string): Promise<RetrieveCommentsWithLongPollingResponse> {
         const response = await graphQLRequest(this.graphQLURL, `
-query ($id: String) {
-  commentsLongPolling(id: $id) {
+query ($id: String, $direction: OrderDirection!) {
+  commentsLongPolling(id: $id, orderBy: {direction: $direction}) {
     id
     name
     message
   }
-}`, {id: lastID});
+}`, {id: lastID ? lastID : null, direction: 'ASC'});
 
         if (!response.ok) {
             console.log(response);

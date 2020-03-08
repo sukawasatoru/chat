@@ -24,6 +24,7 @@ use log::info;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::data::db::entity::dev_flex_chat_entity::CommentEntity;
+use crate::model::juniper_object::OrderDirection;
 use crate::prelude::*;
 
 pub struct DevFlexChatDatabase {
@@ -64,30 +65,40 @@ impl DevFlexChatDatabase {
         }
     }
 
-    pub fn retrieve_after(&self, id: uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
+    pub fn retrieve_after_created_asc(&self, id: &uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
         let table = self.retrieve()?;
         let mut found = false;
-        let mut ret = vec![];
-        for comment in table.comments {
-            if !found && comment.id == id {
+        let mut range_start = 0;
+        for comment in &table.comments {
+            range_start += 1;
+            if &comment.id == id {
                 found = true;
-                continue;
-            }
-
-            if found {
-                ret.push(comment);
-                continue;
+                break;
             }
         }
+
         if found {
-            Ok(ret)
+            Ok(table.comments[range_start..table.comments.len()].to_vec())
         } else {
             failure::bail!("id not found: {:?}", id)
         }
     }
 
-    pub fn retrieve_after_long_polling(&self, id: uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
-        let mut ret_retrieve_after = self.retrieve_after(id)?;
+    pub fn retrieve_after_created_desc(&self, id: &uuid::Uuid) -> Fallible<Vec<CommentEntity>> {
+        let mut comments = self.retrieve_after_created_asc(id)?;
+        comments.reverse();
+        Ok(comments)
+    }
+
+    pub fn retrieve_after_long_polling(
+        &self,
+        id: &uuid::Uuid,
+        order_direction: &OrderDirection,
+    ) -> Fallible<Vec<CommentEntity>> {
+        let mut ret_retrieve_after = match order_direction {
+            OrderDirection::ASC => self.retrieve_after_created_asc(id)?,
+            OrderDirection::DESC => self.retrieve_after_created_desc(id)?,
+        };
 
         if !ret_retrieve_after.is_empty() {
             return Ok(ret_retrieve_after);
@@ -108,17 +119,21 @@ impl DevFlexChatDatabase {
         Ok(rx.recv()?)
     }
 
-    pub fn retrieve_first_created_at_desc(&self, count: u32) -> Fallible<Vec<CommentEntity>> {
+    pub fn retrieve_first_created_at_asc(&self, count: u32) -> Fallible<Vec<CommentEntity>> {
         let table = self.retrieve()?;
         let mut comments = table.comments;
-        let mut ret = vec![];
-        for _ in 0..count {
-            match comments.pop() {
-                Some(data) => ret.push(data),
-                None => return Ok(ret),
-            }
-        }
-        Ok(ret)
+        let range_start = if comments.len() < count as usize {
+            0
+        } else {
+            comments.len() - count as usize
+        };
+        Ok(comments[range_start..comments.len()].to_vec())
+    }
+
+    pub fn retrieve_first_created_at_desc(&self, count: u32) -> Fallible<Vec<CommentEntity>> {
+        let mut comments = self.retrieve_first_created_at_asc(count)?;
+        comments.reverse();
+        Ok(comments)
     }
 
     fn retrieve(&self) -> Fallible<DevFlexChatTable> {

@@ -18,10 +18,34 @@ import '@/app.css';
 import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
 import {ChatComment} from '@/model/chat-models';
-import {Fabric, initializeIcons, List, PrimaryButton, Stack, TextField} from 'office-ui-fabric-react';
-import {default as React, FunctionComponentElement, KeyboardEvent, useCallback, useEffect, useState} from 'react';
+import {Fabric, initializeIcons, List, mergeStyles, Stack, TextField} from 'office-ui-fabric-react';
+import {
+    CSSProperties,
+    default as React,
+    FunctionComponentElement,
+    KeyboardEvent,
+    useCallback,
+    useEffect,
+    useRef,
+    useState
+} from 'react';
 
 initializeIcons();
+
+document.addEventListener('touchstart', (e) => {
+    if (1 < e.touches.length) {
+        e.preventDefault();
+    }
+}, {passive: false});
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+    const currentTouchEnd = Date.now();
+    if (currentTouchEnd - lastTouchEnd < 500) {
+        e.preventDefault();
+    }
+    lastTouchEnd = currentTouchEnd;
+}, {passive: false});
 
 class RetryCounter {
     private readonly step: number[];
@@ -50,13 +74,22 @@ const renderCell = (item?: ChatComment, index?: number, isScrolling?: boolean): 
     }
 
     return (
-        <div>
-            name: {item.name}, {item.message}
-        </div>
+        <Stack tokens={{padding: '8px', maxHeight: '50px'}}>
+            <div style={{fontWeight: 'bold'}}>
+                {item.name}
+            </div>
+            <div>
+                {item.message}
+            </div>
+        </Stack>
     );
 };
 
 const getCommentKey = (item?: ChatComment, index?: number): string => item ? item.id : 'none';
+
+const listContainerClass = mergeStyles({
+    overflow: 'scroll',
+});
 
 const App = (): FunctionComponentElement<unknown> => {
     const chat = new ChatRepository(new ChatDataSourceImpl(process.env.GRAPHQL_ENDPOINT));
@@ -64,19 +97,35 @@ const App = (): FunctionComponentElement<unknown> => {
     const initialUserName = localStorage.getItem('userName');
     const [userName, setUserName] = useState(initialUserName ? initialUserName : '');
     const [message, setMessage] = useState('');
+    const [windowSize, setWindowSize] = useState<CSSProperties>({
+        width: window.innerWidth,
+        height: window.innerHeight,
+    });
+    const [requestScrollCommentListToBottom, setRequestScrollCommentListToBottom] = useState(false);
+    const refCommentList = useRef<List<ChatComment>>(null);
 
     const onSendClick = useCallback(() => {
         const task = async (): Promise<void> => {
             try {
                 await chat.addComment(userName, message);
                 setMessage('');
+                setRequestScrollCommentListToBottom(true);
             } catch (e) {
                 console.log(`failed to send comment: ${e}`);
             }
         };
         // noinspection JSIgnoredPromiseFromCall
         task();
-    }, [chat, userName, message, setMessage]);
+    }, [chat, userName, message, setMessage, setRequestScrollCommentListToBottom]);
+    useEffect(() => {
+        if (!refCommentList.current) {
+            return;
+        }
+        if (requestScrollCommentListToBottom) {
+            setRequestScrollCommentListToBottom(false);
+            refCommentList.current.scrollToIndex(comments.length - 1);
+        }
+    }, [comments, requestScrollCommentListToBottom, setRequestScrollCommentListToBottom, refCommentList]);
 
     useEffect(() => {
         const retryCounter = new RetryCounter();
@@ -84,11 +133,11 @@ const App = (): FunctionComponentElement<unknown> => {
             try {
                 const data = await chat.retrieveCommentsWithLongPolling(id);
                 retryCounter.reset();
-                setComments(prev => data.concat(prev));
-                window.setTimeout(() => polling(data[0].id), 0);
+                setComments(prev => prev.concat(data));
+                window.setTimeout(() => polling(data[data.length - 1].id), 0);
             } catch (e) {
                 const timeout = retryCounter.timeoutMilliSec();
-                console.log(`failed to execute retrieveCommentsWithLongPolling. retry: ${timeout}ms`);
+                console.log(`failed to execute retrieveCommentsWithLongPolling. retry: ${timeout}ms, reason: ${e}`);
                 window.setTimeout(() => polling(id), timeout);
             }
         };
@@ -97,9 +146,9 @@ const App = (): FunctionComponentElement<unknown> => {
             try {
                 const data = await chat.retrieveComments();
                 retryCounter.reset();
-                setComments(prev => data.concat(prev));
+                setComments(prev => prev.concat(data));
                 if (0 < data.length) {
-                    latestID = data[0].id;
+                    latestID = data[data.length - 1].id;
                 }
             } catch (e) {
                 const timeout = retryCounter.timeoutMilliSec();
@@ -119,23 +168,43 @@ const App = (): FunctionComponentElement<unknown> => {
     useEffect(() => localStorage.setItem("userName", userName), [userName]);
     const noMessageKeyDown = useCallback((ev: KeyboardEvent) => {
         if (ev.key == 'Enter') {
-            onSendClick();
             ev.stopPropagation();
+
+            if (message.length == 0) {
+                return;
+            }
+            onSendClick();
         }
-    }, [onSendClick]);
+    }, [onSendClick, message]);
+
+    useEffect(() => {
+        const windowSizeCb = () => setWindowSize({
+            position: 'absolute',
+            top: 0,
+            bottom: window.outerHeight - window.innerHeight,
+            left: 0,
+            right: window.outerWidth - window.innerWidth,
+        });
+        window.addEventListener('resize', windowSizeCb);
+        return () => window.removeEventListener('resize', windowSizeCb);
+    }, []);
 
     return (
         <Fabric>
-            <Stack tokens={{childrenGap: 15}} horizontal>
-                <TextField label={'name'} defaultValue={userName}
-                           onChange={(e: any, value?: string) => setUserName(value ? value : '')}/>
-                <TextField label={'message'}
-                           onChange={(e: any, value?: string) => setMessage(value ? value : '')}
-                           onKeyDown={noMessageKeyDown}
-                           value={message}/>
+            <Stack style={windowSize}>
+                <div className={listContainerClass} data-is-scrollable="true">
+                    <List ref={refCommentList} getKey={getCommentKey} items={comments} onRenderCell={renderCell}/>
+                </div>
+                <div style={{width: '100%', alignSelf: 'flex-end'}}>
+                    <Stack tokens={{childrenGap: 15}} style={{margin: '16px'}}>
+                        <TextField style={{fontSize: '16px'}} label={'name'} defaultValue={userName}
+                                   onChange={(e: any, value?: string) => setUserName(value ? value : '')}/>
+                        <TextField style={{fontSize: '16px'}} label={'message'}
+                                   onChange={(e: any, value?: string) => setMessage(value ? value : '')}
+                                   onKeyDown={noMessageKeyDown} value={message} description={'return to send'}/>
+                    </Stack>
+                </div>
             </Stack>
-            <PrimaryButton onClick={onSendClick}>Send</PrimaryButton>
-            <List getKey={getCommentKey} items={comments} onRenderCell={renderCell}/>
         </Fabric>
     );
 };

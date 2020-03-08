@@ -14,5 +14,8 @@
  * limitations under the License.
  */
 
-pub(crate) mod hello_model;
-pub(crate) mod juniper_object;
+#[derive(Debug, juniper::GraphQLEnum)]
+pub enum OrderDirection {
+    ASC,
+    DESC,
+}

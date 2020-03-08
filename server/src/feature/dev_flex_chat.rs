@@ -21,6 +21,7 @@ use log::warn;
 
 use crate::data::db::entity::dev_flex_chat_entity::CommentEntity;
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
+use crate::model::juniper_object::OrderDirection;
 
 #[derive(GraphQLObject)]
 pub struct Comment {
@@ -42,7 +43,11 @@ pub struct CommentResponse {
     pub message: String,
 }
 
-pub fn comments(repo: &DevFlexChatRepository, first: i32) -> FieldResult<Vec<Comment>> {
+pub fn comments(
+    repo: &DevFlexChatRepository,
+    first: i32,
+    order_direction: &OrderDirection,
+) -> FieldResult<Vec<Comment>> {
     let first = first.try_into().map_err(|e| {
         FieldError::new(
             e,
@@ -50,7 +55,7 @@ pub fn comments(repo: &DevFlexChatRepository, first: i32) -> FieldResult<Vec<Com
         )
     })?;
     Ok(repo
-        .retrieve_first(first)
+        .retrieve_first(first, order_direction)
         .map_err(|e| {
             warn!("failed repo.retrieve_first: {:?}", e);
             FieldError::new(
@@ -70,6 +75,7 @@ pub fn comments(repo: &DevFlexChatRepository, first: i32) -> FieldResult<Vec<Com
 pub fn comments_after_long_polling(
     repo: &DevFlexChatRepository,
     id: String,
+    order_direction: &OrderDirection,
 ) -> FieldResult<Vec<Comment>> {
     let id = id.parse().map_err(|e| {
         FieldError::new(
@@ -78,7 +84,7 @@ pub fn comments_after_long_polling(
         )
     })?;
     Ok(repo
-        .retrieve_after_long_polling(id)
+        .retrieve_after_long_polling(&id, &order_direction)
         .map_err(|e| {
             FieldError::new(
                 e,

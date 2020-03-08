@@ -26,6 +26,7 @@ use url::Url;
 
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
 use crate::feature::dev_flex_chat::{self, Comment, CommentInput, CommentResponse};
+use crate::model::juniper_object::OrderDirection;
 use crate::prelude::*;
 
 type BoxFut = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
@@ -42,6 +43,11 @@ impl Context {
     fn new(chat_repo: DevFlexChatRepository) -> Self {
         Self { chat_repo }
     }
+}
+
+#[derive(Debug, juniper::GraphQLInputObject)]
+struct CommentOrder {
+    direction: OrderDirection,
 }
 
 struct Query {
@@ -63,8 +69,12 @@ impl Query {
         "0.1"
     }
 
-    fn comments(context: &Context, first: i32) -> FieldResult<Vec<Comment>> {
-        match dev_flex_chat::comments(&context.chat_repo, first) {
+    fn comments(
+        context: &Context,
+        first: i32,
+        order_by: CommentOrder,
+    ) -> FieldResult<Vec<Comment>> {
+        match dev_flex_chat::comments(&context.chat_repo, first, &order_by.direction) {
             Ok(data) => Ok(data),
             Err(e) => {
                 warn!("failed to retrieve comment: {:?}", e);
@@ -73,14 +83,21 @@ impl Query {
         }
     }
 
-    fn comments_long_polling(context: &Context, id: Option<String>) -> FieldResult<Vec<Comment>> {
+    fn comments_long_polling(
+        context: &Context,
+        id: Option<String>,
+        order_by: CommentOrder,
+    ) -> FieldResult<Vec<Comment>> {
         match id {
-            Some(id) => {
-                dev_flex_chat::comments_after_long_polling(&context.chat_repo, id).map_err(|e| {
-                    warn!("failed to long polling comment: {:?}", e);
-                    e
-                })
-            }
+            Some(id) => dev_flex_chat::comments_after_long_polling(
+                &context.chat_repo,
+                id,
+                &order_by.direction,
+            )
+            .map_err(|e| {
+                warn!("failed to long polling comment: {:?}", e);
+                e
+            }),
             None => dev_flex_chat::long_polling(&context.chat_repo).map(|data| vec![data]),
         }
     }
