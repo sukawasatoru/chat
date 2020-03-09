@@ -18,7 +18,7 @@ import '@/app.css';
 import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
 import {ChatComment} from '@/model/chat-models';
-import {Fabric, initializeIcons, List, mergeStyles, Stack, TextField} from 'office-ui-fabric-react';
+import {Fabric, initializeIcons, List, mergeStyles, Stack, Text, TextField} from 'office-ui-fabric-react';
 import {
     CSSProperties,
     default as React,
@@ -74,13 +74,13 @@ const renderCell = (item?: ChatComment, index?: number, isScrolling?: boolean): 
     }
 
     return (
-        <Stack tokens={{padding: '8px', maxHeight: '50px'}}>
+        <Stack tokens={{padding: '8px', maxHeight: '80px'}}>
             <div style={{fontWeight: 'bold'}}>
                 {item.name}
             </div>
-            <div>
+            <Text variant={'medium'} style={{wordBreak: 'break-word'}}>
                 {item.message}
-            </div>
+            </Text>
         </Stack>
     );
 };
@@ -146,9 +146,16 @@ const App = (): FunctionComponentElement<unknown> => {
             try {
                 const data = await chat.retrieveComments();
                 retryCounter.reset();
-                setComments(prev => prev.concat(data));
+                let len = 0;
+                setComments(prev => {
+                    len = prev.length + data.length;
+                    return prev.concat(data);
+                });
                 if (0 < data.length) {
                     latestID = data[data.length - 1].id;
+                    if (refCommentList.current) {
+                        refCommentList.current.scrollToIndex(len - 1);
+                    }
                 }
             } catch (e) {
                 const timeout = retryCounter.timeoutMilliSec();
