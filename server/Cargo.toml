@@ -1,6 +1,6 @@
 [package]
 name = "chat"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
 edition = "2018"
 description = "Chat server"
@@ -19,7 +19,6 @@ futures = "=0.1.29"
 # v0.12.x for juniper v0.14.x
 hyper = "=0.12.35"
 juniper = "=0.14.2"
-juniper_codegen = "=0.14.2"
 juniper_hyper = "=0.5.2"
 log = "=0.4.8"
 

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
-pub(crate) mod hello_model;
-pub(crate) mod juniper_object;
-pub(crate) mod version;
+use std::path::PathBuf;
+
+pub fn get_database_file_path(database_path: Option<PathBuf>) -> PathBuf {
+    database_path
+        .map(|dir| dir.join("database.toml"))
+        .unwrap_or_else(|| std::path::Path::new("database.toml").to_owned())
+}

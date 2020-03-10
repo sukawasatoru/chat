@@ -15,7 +15,8 @@
  */
 
 pub(crate) mod data;
-pub(crate) mod feature;
+pub mod feature;
 pub mod model;
 pub mod prelude;
 pub mod server;
+pub mod util;

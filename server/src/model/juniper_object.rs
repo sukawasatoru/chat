@@ -14,6 +14,22 @@
  * limitations under the License.
  */
 
+use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
+
+pub struct Context {
+    pub chat_repo: DevFlexChatRepository,
+}
+
+impl juniper::Context for Context {
+    // do nothing.
+}
+
+impl Context {
+    pub fn new(chat_repo: DevFlexChatRepository) -> Self {
+        Self { chat_repo }
+    }
+}
+
 #[derive(Debug, juniper::GraphQLEnum)]
 pub enum OrderDirection {
     ASC,

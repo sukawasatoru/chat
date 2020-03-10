@@ -14,18 +14,38 @@
  * limitations under the License.
  */
 
+export type ChannelID = string & { readonly phantomType: unique symbol };
+
+export type CommentID = string & { readonly phantomType: unique symbol };
+
+export class ChatChannel {
+    readonly channelID: ChannelID;
+    readonly name: string;
+
+    constructor(obj: { channelID: ChannelID; name: string }) {
+        this.channelID = obj.channelID;
+        this.name = obj.name;
+    }
+
+    toString(): string {
+        return `ChatChannel {channelID: ${this.channelID}, name: ${this.name}}`;
+    }
+}
+
 export class ChatComment {
-    readonly id: string;
+    readonly commentID: CommentID;
+    readonly channelID: ChannelID;
     readonly name: string;
     readonly message: string;
 
-    public constructor(obj: { id: string; name: string; message: string }) {
-        this.id = obj.id;
+    constructor(obj: { commentID: CommentID; channelID: ChannelID; name: string; message: string }) {
+        this.commentID = obj.commentID;
+        this.channelID = obj.channelID;
         this.name = obj.name;
         this.message = obj.message;
     }
 
-    public toString(): string {
-        return `ChatComment {id: ${this.id}, name: ${this.name}, message: ${this.message}}`;
+    toString(): string {
+        return `ChatComment {commentID: ${this.commentID}, channelID: ${this.channelID}, name: ${this.name}, message: ${this.message}}`;
     }
 }

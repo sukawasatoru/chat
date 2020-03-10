@@ -14,25 +14,7 @@
  * limitations under the License.
  */
 
-export type CommentsResponse = {
-    data: {
-        comments: {
-            id: string;
-            name: string;
-            message: string;
-        }[];
-    };
-};
-
-export type RetrieveCommentsWithLongPollingResponse = {
-    data: {
-        commentsLongPolling: {
-            id: string;
-            name: string;
-            message: string;
-        }[];
-    };
-};
+import {ChannelID} from '@/model/chat-models';
 
 export type AddCommentResponse = {
     data: {
@@ -45,10 +27,45 @@ export type AddCommentResponse = {
 }
 
 
+export type ChannelsResponse = {
+    data: {
+        channels: {
+            id: string;
+            name: string;
+        }[];
+    };
+}
+
+export type CommentsResponse = {
+    data: {
+        channel: {
+            comments: {
+                id: string;
+                name: string;
+                message: string;
+            }[];
+        };
+    };
+};
+
+export type RetrieveCommentsWithLongPollingResponse = {
+    data: {
+        channel: {
+            commentsLongPolling: {
+                id: string;
+                name: string;
+                message: string;
+            }[];
+        };
+    };
+};
+
 export interface ChatDataSource {
-    retrieveComments(): Promise<CommentsResponse>;
+    addComment(channelID: ChannelID, userName: string, message: string, abortSignal?: AbortSignal): Promise<AddCommentResponse>;
 
-    retrieveCommentsWithLongPolling(lastID?: string): Promise<RetrieveCommentsWithLongPollingResponse>;
+    retrieveChannels(abortSignal?: AbortSignal): Promise<ChannelsResponse>;
 
-    addComment(userName: string, message: string): Promise<AddCommentResponse>;
+    retrieveComments(channelID: ChannelID, abortSignal?: AbortSignal): Promise<CommentsResponse>;
+
+    retrieveCommentsWithLongPolling(channelID: ChannelID, lastID?: string, abortSignal?: AbortSignal): Promise<RetrieveCommentsWithLongPollingResponse>;
 }

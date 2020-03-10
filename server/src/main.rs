@@ -31,8 +31,8 @@ struct Opt {
 enum Command {
     Server {
         #[structopt(short, long, parse(from_os_str))]
-        /// Database path
-        database: Option<PathBuf>,
+        /// Database directory path
+        database_dir: Option<PathBuf>,
 
         #[structopt(short, long)]
         /// Server address
@@ -41,6 +41,10 @@ enum Command {
         #[structopt(short, long)]
         /// Hostname to use json result
         hostname: String,
+    },
+    Migration {
+        /// Database directory path
+        database_dir: Option<PathBuf>,
     },
 }
 
@@ -56,10 +60,11 @@ fn main() -> Fallible<()> {
 
     match opt.cmd {
         Command::Server {
-            database,
+            database_dir,
             address,
             hostname,
-        } => chat::server::server(database, address, hostname)?,
+        } => chat::server::server(database_dir, address, hostname)?,
+        Command::Migration { database_dir } => chat::feature::migration::migration(database_dir)?,
     }
 
     info!("Bye");

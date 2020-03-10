@@ -20,109 +20,76 @@ use std::sync::Arc;
 use futures::Future;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, StatusCode};
-use juniper::FieldResult;
+use juniper::{FieldResult, ID};
 use log::{error, info, warn};
 use url::Url;
 
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
-use crate::feature::dev_flex_chat::{self, Comment, CommentInput, CommentResponse};
-use crate::model::juniper_object::OrderDirection;
+use crate::feature::dev_flex_chat::{
+    self, Channel, ChannelInput, ChannelResponse, CommentInput, CommentResponse,
+};
+use crate::model::juniper_object::Context;
 use crate::prelude::*;
 
 type BoxFut = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
-pub struct Context {
-    chat_repo: DevFlexChatRepository,
-}
-
-impl juniper::Context for Context {
-    // do nothing.
-}
-
-impl Context {
-    fn new(chat_repo: DevFlexChatRepository) -> Self {
-        Self { chat_repo }
-    }
-}
-
-#[derive(Debug, juniper::GraphQLInputObject)]
-struct CommentOrder {
-    direction: OrderDirection,
-}
-
 struct Query {
     #[allow(dead_code)]
-    hello: String,
+    oauth_value: Option<String>,
 }
 
 impl Default for Query {
     fn default() -> Self {
         Self {
-            hello: "Hello".into(),
+            oauth_value: Default::default(),
         }
     }
 }
 
 #[juniper::object(Context = Context)]
 impl Query {
-    fn api_version() -> &str {
-        "0.1"
+    fn channel(&self, context: &Context, id: ID) -> FieldResult<Option<Channel>> {
+        dev_flex_chat::channel(&context.chat_repo, id).map_err(|e| {
+            warn!("failed to find channel: {:?}", e);
+            e
+        })
     }
 
-    fn comments(
-        context: &Context,
-        first: i32,
-        order_by: CommentOrder,
-    ) -> FieldResult<Vec<Comment>> {
-        match dev_flex_chat::comments(&context.chat_repo, first, &order_by.direction) {
-            Ok(data) => Ok(data),
-            Err(e) => {
-                warn!("failed to retrieve comment: {:?}", e);
-                Err(e)
-            }
-        }
-    }
-
-    fn comments_long_polling(
-        context: &Context,
-        id: Option<String>,
-        order_by: CommentOrder,
-    ) -> FieldResult<Vec<Comment>> {
-        match id {
-            Some(id) => dev_flex_chat::comments_after_long_polling(
-                &context.chat_repo,
-                id,
-                &order_by.direction,
-            )
-            .map_err(|e| {
-                warn!("failed to long polling comment: {:?}", e);
-                e
-            }),
-            None => dev_flex_chat::long_polling(&context.chat_repo).map(|data| vec![data]),
-        }
+    fn channels(context: &Context) -> FieldResult<Vec<Channel>> {
+        dev_flex_chat::channels(&context.chat_repo).map_err(|e| {
+            warn!("failed to find channels: {:?}", e);
+            e
+        })
     }
 }
 
 struct Mutation {
     #[allow(dead_code)]
-    hello: String,
+    oauth_value: Option<String>,
 }
 
 impl Default for Mutation {
     fn default() -> Self {
         Self {
-            hello: "Hello".into(),
+            oauth_value: Default::default(),
         }
     }
 }
 
 #[juniper::object(Context = Context)]
 impl Mutation {
-    fn api_version() -> &str {
-        "0.1"
+    fn add_channel(context: &Context, channel: ChannelInput) -> FieldResult<ChannelResponse> {
+        dev_flex_chat::add_channel(&context.chat_repo, channel).map_err(|e| {
+            warn!("failed to execute the add_channel: {:?}", e);
+            e
+        })
     }
 
-    fn add_comment(context: &Context, comment: CommentInput) -> FieldResult<CommentResponse> {
+    fn add_comment(
+        &self,
+        context: &Context,
+        comment: CommentInput,
+    ) -> FieldResult<CommentResponse> {
         match dev_flex_chat::add_comment(&context.chat_repo, comment) {
             Ok(data) => Ok(data),
             Err(e) => {
@@ -134,18 +101,24 @@ impl Mutation {
 }
 
 pub fn server(database: Option<PathBuf>, address: String, hostname: String) -> Fallible<()> {
-    let database_path = database.unwrap_or(std::path::Path::new("database.toml").to_owned());
+    let database_path = crate::util::get_database_file_path(database);
     let socket_address = address.parse()?;
     info!("database_path: {:?}", database_path);
     info!("socket_address: {:?}", socket_address);
-    let chat_repo = DevFlexChatRepository::new(database_path);
+    let chat_repo = DevFlexChatRepository::prepare(database_path)?;
 
     let context = Arc::new(Context::new(chat_repo));
     let root_node = Arc::new(juniper::RootNode::new(
         Query::default(),
         Mutation::default(),
     ));
-    Ok(hyper::rt::run(
+
+    info!(
+        "database_version: {:?}",
+        context.chat_repo.database_version()?
+    );
+
+    hyper::rt::run(
         hyper::Server::bind(&socket_address)
             .serve(make_service_fn(move |_| {
                 let context = context.clone();
@@ -164,7 +137,9 @@ pub fn server(database: Option<PathBuf>, address: String, hostname: String) -> F
                 )
             }))
             .map_err(|e| error!("fatal error: {:?}", e)),
-    ))
+    );
+
+    Ok(())
 }
 
 fn on_request(
@@ -187,10 +162,28 @@ fn on_request(
             juniper_hyper::graphql(root_node, context, req)
                 .map(append_access_control_allow_origin_all),
         )),
-        (&Method::POST, Some("graphql")) => Ok(Box::new(
-            juniper_hyper::graphql(root_node, context, req)
-                .map(append_access_control_allow_origin_all),
-        )),
+        (&Method::POST, Some("graphql")) => {
+            // TODO: support oauth.
+            let root_node = match req.headers().get(hyper::header::AUTHORIZATION) {
+                Some(data) => {
+                    let o_auth_str = data.to_str()?;
+                    Arc::new(juniper::RootNode::new(
+                        Query {
+                            oauth_value: Some(o_auth_str.to_owned()),
+                        },
+                        Mutation {
+                            oauth_value: Some(o_auth_str.into()),
+                        },
+                    ))
+                }
+                None => root_node,
+            };
+
+            Ok(Box::new(
+                juniper_hyper::graphql(root_node, context, req)
+                    .map(append_access_control_allow_origin_all),
+            ))
+        }
         _ => {
             info!("404");
             let mut response = Response::new(Body::empty());

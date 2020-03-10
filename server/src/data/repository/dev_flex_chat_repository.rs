@@ -18,47 +18,70 @@ use std::path::PathBuf;
 
 use crate::data::db::dev_flex_chat_database::DevFlexChatDatabase;
 // TODO: use model.
-use crate::data::db::entity::dev_flex_chat_entity::CommentEntity;
+use crate::data::db::entity::dev_flex_chat_entity::{
+    ChannelEntity, ChannelID, CommentEntity, CommentID,
+};
 use crate::model::juniper_object::OrderDirection;
+use crate::model::version::Version;
 use crate::prelude::*;
 
 pub struct DevFlexChatRepository {
-    database_path: PathBuf,
     database: DevFlexChatDatabase,
 }
 
 impl DevFlexChatRepository {
-    pub fn new<T: Into<PathBuf>>(database_path: T) -> Self {
+    pub fn prepare<T: Into<PathBuf>>(database_path: T) -> Fallible<Self> {
         let database_path = database_path.into();
 
-        Self {
-            database_path: database_path.to_owned(),
-            database: DevFlexChatDatabase::new(database_path),
-        }
+        Ok(Self {
+            database: DevFlexChatDatabase::create(database_path)?,
+        })
+    }
+
+    pub fn channels(&self) -> Fallible<Vec<ChannelEntity>> {
+        self.database.channels()
+    }
+
+    pub fn database_version(&self) -> Fallible<(Version, u16)> {
+        self.database.database_version()
+    }
+
+    pub fn find_channel<T: AsRef<ChannelID>>(&self, id: T) -> Fallible<Option<ChannelEntity>> {
+        self.database.find_channel(id)
     }
 
     pub fn retrieve_first(
         &self,
+        channel_id: &ChannelID,
         count: u32,
         order_direction: &OrderDirection,
     ) -> Fallible<Vec<CommentEntity>> {
         match order_direction {
-            OrderDirection::ASC => self.database.retrieve_first_created_at_asc(count),
-            OrderDirection::DESC => self.database.retrieve_first_created_at_desc(count),
+            OrderDirection::ASC => self
+                .database
+                .retrieve_first_created_at_asc(channel_id, count),
+            OrderDirection::DESC => self
+                .database
+                .retrieve_first_created_at_desc(channel_id, count),
         }
     }
 
     pub fn retrieve_after_long_polling(
         &self,
-        id: &uuid::Uuid,
+        channel_id: &ChannelID,
+        id: &CommentID,
         order_direction: &OrderDirection,
     ) -> Fallible<Vec<CommentEntity>> {
         self.database
-            .retrieve_after_long_polling(id, order_direction)
+            .retrieve_after_long_polling(channel_id, id, order_direction)
     }
 
-    pub fn long_polling(&self) -> Fallible<CommentEntity> {
-        self.database.long_polling()
+    pub fn long_polling(&self, channel_id: &ChannelID) -> Fallible<CommentEntity> {
+        self.database.long_polling(channel_id)
+    }
+
+    pub fn save_channel<T: Into<ChannelEntity>>(&self, entity: T) -> Fallible<()> {
+        self.database.save_channel(entity)
     }
 
     pub fn save_comment<T: Into<CommentEntity>>(&self, comment: T) -> Fallible<()> {

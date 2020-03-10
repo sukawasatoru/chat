@@ -16,13 +16,16 @@
 
 import {
     AddCommentResponse,
+    ChannelsResponse,
     ChatDataSource,
     CommentsResponse,
     RetrieveCommentsWithLongPollingResponse
 } from '@/data/api/chat-data-source';
 
+import {ChannelID} from '@/model/chat-models';
+
 // TODO: use apollo.
-const graphQLRequest = (url: string, query: string, variables: object): Promise<Response> => {
+const graphQLRequest = (url: string, query: string, variables: object, abortSignal?: AbortSignal): Promise<Response> => {
     return fetch(url, {
         headers: {
             // for avoid OPTIONS method.
@@ -32,6 +35,7 @@ const graphQLRequest = (url: string, query: string, variables: object): Promise<
         method: 'POST',
         mode: 'cors',
         body: JSON.stringify({query, variables}),
+        signal: abortSignal,
     });
 };
 
@@ -42,35 +46,54 @@ export class ChatDataSourceImpl implements ChatDataSource {
         this.graphQLURL = graphQLURL;
     }
 
-    async addComment(userName: string, message: string): Promise<AddCommentResponse> {
+    async addComment(channelID: ChannelID, userName: string, message: string, abortSignal?: AbortSignal): Promise<AddCommentResponse> {
         const response = await graphQLRequest(this.graphQLURL, `
-mutation ($name: String!, $message: String!) {
-  addComment(comment: {name: $name, message: $message}) {
+mutation($channelId: ID!, $name: String!, $message: String!) {
+  addComment(
+    comment: { channelId: $channelId, name: $name, message: $message }
+  ) {
     id
     name
     message
   }
-}
-`, {name: userName, message});
+}`, {channelId: channelID, name: userName, message}, abortSignal);
 
         if (!response.ok) {
             console.log(response);
-            throw new Error(`failed to send comment`);
+            throw new Error(`failed to send comment: ${response.body}`);
         }
 
         return response.json();
     }
 
-    async retrieveComments(): Promise<CommentsResponse> {
+    async retrieveChannels(abortSignal?: AbortSignal): Promise<ChannelsResponse> {
         const response = await graphQLRequest(this.graphQLURL, `
-query($first: Int!, $direction: OrderDirection!){
-  comments(first: $first, orderBy: {direction: $direction}) {
+{
+  channels {
     id
     name
-    message
   }
-}
-`, {first: 100, direction: 'ASC'});
+}`, {}, abortSignal);
+
+        if (!response.ok) {
+            console.log(response);
+            throw new Error(`failed to retrieve channels`);
+        }
+
+        return await response.json();
+    }
+
+    async retrieveComments(channelID: ChannelID, abortSignal?: AbortSignal): Promise<CommentsResponse> {
+        const response = await graphQLRequest(this.graphQLURL, `
+query($channelId: ID!, $first:Int!, $direction: OrderDirection!) {
+  channel(id: $channelId) {
+    comments(first: $first, orderBy: { direction: $direction }) {
+      id
+      name
+      message
+    }
+  }
+}`, {channelId: channelID, first: 100, direction: 'ASC'}, abortSignal);
 
         if (!response.ok) {
             console.log(response);
@@ -80,15 +103,17 @@ query($first: Int!, $direction: OrderDirection!){
         return await response.json();
     }
 
-    async retrieveCommentsWithLongPolling(lastID?: string): Promise<RetrieveCommentsWithLongPollingResponse> {
+    async retrieveCommentsWithLongPolling(channelID: ChannelID, lastID?: string, abortSignal?: AbortSignal): Promise<RetrieveCommentsWithLongPollingResponse> {
         const response = await graphQLRequest(this.graphQLURL, `
-query ($id: String, $direction: OrderDirection!) {
-  commentsLongPolling(id: $id, orderBy: {direction: $direction}) {
-    id
-    name
-    message
+query($channelId: ID!, $commentId: ID, $direction: OrderDirection!) {
+  channel(id: $channelId) {
+    commentsLongPolling(id: $commentId, orderBy: { direction: $direction }) {
+      id
+      name
+      message
+    }
   }
-}`, {id: lastID ? lastID : null, direction: 'ASC'});
+}`, {channelId: channelID, commentId: lastID, direction: 'ASC'}, abortSignal);
 
         if (!response.ok) {
             console.log(response);
