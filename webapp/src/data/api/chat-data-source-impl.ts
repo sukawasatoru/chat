@@ -15,6 +15,7 @@
  */
 
 import {
+    AddChannelResponse,
     AddCommentResponse,
     ChannelsResponse,
     ChatDataSource,
@@ -44,6 +45,22 @@ export class ChatDataSourceImpl implements ChatDataSource {
 
     constructor(graphQLURL: string) {
         this.graphQLURL = graphQLURL;
+    }
+
+    async addChannel(channelName: string, abortSignal?: AbortSignal): Promise<AddChannelResponse> {
+        const response = await graphQLRequest(this.graphQLURL, `
+mutation($name: String!) {
+  addChannel(channel: { name: $name }) {
+    id
+    name
+  }
+}`, {name: channelName}, abortSignal);
+
+        if (!response.ok) {
+            throw new Error(`failed to add channel: ${response.body}`);
+        }
+
+        return response.json();
     }
 
     async addComment(channelID: ChannelID, userName: string, message: string, abortSignal?: AbortSignal): Promise<AddCommentResponse> {

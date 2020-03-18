@@ -24,6 +24,11 @@ export class ChatRepository {
         this.dataSource = dataSource;
     }
 
+    async addChannel(channelName: string, abortSignal?: AbortSignal): Promise<ChatChannel> {
+        const {id, name} = (await this.dataSource.addChannel(channelName, abortSignal)).data.addChannel;
+        return new ChatChannel({channelID: id as ChannelID, name});
+    }
+
     async addComment(channelID: ChannelID, userName: string, message: string, abortSignal?: AbortSignal): Promise<ChatComment> {
         const {id, name, message: mes} = (await this.dataSource.addComment(channelID, userName, message, abortSignal))
             .data.addComment;

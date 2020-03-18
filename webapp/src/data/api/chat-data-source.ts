@@ -14,7 +14,16 @@
  * limitations under the License.
  */
 
-import {ChannelID} from '@/model/chat-models';
+import {ChannelID, ChatChannel} from '@/model/chat-models';
+
+export type AddChannelResponse = {
+    data: {
+        addChannel: {
+            id: string,
+            name: string,
+        };
+    };
+};
 
 export type AddCommentResponse = {
     data: {
@@ -61,6 +70,8 @@ export type RetrieveCommentsWithLongPollingResponse = {
 };
 
 export interface ChatDataSource {
+    addChannel(channelName: string, abortSignal?: AbortSignal): Promise<AddChannelResponse>;
+
     addComment(channelID: ChannelID, userName: string, message: string, abortSignal?: AbortSignal): Promise<AddCommentResponse>;
 
     retrieveChannels(abortSignal?: AbortSignal): Promise<ChannelsResponse>;

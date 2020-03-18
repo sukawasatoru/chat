@@ -19,16 +19,20 @@ import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
 import {ChannelID, ChatChannel, ChatComment, CommentID} from '@/model/chat-models';
 import {
+    CommandBar,
     Fabric,
+    ICommandBarItemProps,
     INavLink,
     INavLinkGroup,
     initializeIcons,
     List,
     mergeStyles,
     Nav,
+    Panel,
+    PanelType,
     Stack,
     Text,
-    TextField
+    TextField,
 } from 'office-ui-fabric-react';
 import 'office-ui-fabric-react/dist/css/fabric.min.css'
 import {
@@ -112,6 +116,71 @@ const calcWindowSize = (): Partial<CSSProperties> => ({
     left: 0,
     right: window.outerWidth - window.innerWidth,
 });
+
+type useCreateChannelRet = {
+    commandItems: ICommandBarItemProps[];
+    dismissCreateChannelPanel: () => void;
+    isOpenCreateChannelPanel: boolean;
+    onCreateChannelNameChanged: (ev: any, newValue?: string) => void;
+    onCreateChannelNameKeyDown: (ev: KeyboardEvent) => void;
+};
+
+const useCreateChannel = (chat: ChatRepository): useCreateChannelRet => {
+    const [isOpenCreateChannelPanel, setIsOpenCreateChannelPanel] = useState(false);
+    const openCreateChannelPanel = useCallback(() => setIsOpenCreateChannelPanel(true), [setIsOpenCreateChannelPanel]);
+
+    const dismissCreateChannelPanel = useCallback(() => setIsOpenCreateChannelPanel(false), [setIsOpenCreateChannelPanel]);
+
+    const commandItems: ICommandBarItemProps[] = [{
+        key: 'menu',
+        text: 'menu',
+        iconProps: {
+            iconName: 'GlobalNavButton',
+        },
+        subMenuProps: {
+            items: [
+                {
+                    key: 'create-channel',
+                    text: 'Create Channel',
+                    onClick: openCreateChannelPanel,
+                },
+            ]
+        }
+    }];
+
+    const [channelName, setChannelName] = useState('');
+    const onCreateChannelNameChanged = useCallback((ev: any, newValue?: string): void => {
+        setChannelName(newValue ? newValue : '');
+    }, [setChannelName]);
+
+    const onCreateChannelNameKeyDown = useCallback((ev: KeyboardEvent) => {
+        if (ev.key !== 'Enter') {
+            return;
+        }
+        ev.stopPropagation();
+        if (channelName.length === 0) {
+            return;
+        }
+        const task = async (): Promise<void> => {
+            try {
+                await chat.addChannel(channelName);
+                dismissCreateChannelPanel();
+            } catch (e) {
+                console.log(`failed to add channel: ${e}`);
+            }
+        };
+        // noinspection JSIgnoredPromiseFromCall
+        task();
+    }, [chat, channelName, dismissCreateChannelPanel]);
+
+    return {
+        commandItems,
+        dismissCreateChannelPanel,
+        isOpenCreateChannelPanel,
+        onCreateChannelNameChanged,
+        onCreateChannelNameKeyDown,
+    };
+};
 
 const useWindowSize = () => {
     const createState = () => ({
@@ -281,10 +350,10 @@ const App = (): FunctionComponentElement<unknown> => {
 
     useEffect(() => localStorage.setItem("userName", userName), [userName]);
     const noMessageKeyDown = useCallback((ev: KeyboardEvent) => {
-        if (ev.key == 'Enter') {
+        if (ev.key === 'Enter') {
             ev.stopPropagation();
 
-            if (message.length == 0) {
+            if (message.length === 0) {
                 return;
             }
             onSendClick();
@@ -310,6 +379,14 @@ const App = (): FunctionComponentElement<unknown> => {
         }
     }, [allChannels, setCurrentChannel]);
 
+    const {
+        commandItems,
+        dismissCreateChannelPanel,
+        isOpenCreateChannelPanel,
+        onCreateChannelNameChanged,
+        onCreateChannelNameKeyDown,
+    } = useCreateChannel(chat);
+
     return (
         <Fabric>
             <div className='ms-Grid' dir='ltr' style={{
@@ -322,21 +399,35 @@ const App = (): FunctionComponentElement<unknown> => {
                     </div>
                     <div className='ms-Grid-col ms-lg12 ms-xl10' style={{padding: 0}}>
                         <div className={listContainerClass} data-is-scrollable="true"
-                             style={{width: windowSize.innerWidth, height: `calc(${windowSize.innerHeight}px - 9rem`}}>
+                             style={{width: '100%', height: `calc(${windowSize.innerHeight}px - 9rem`}}>
                             <List ref={refCommentList} getKey={getCommentKey} items={comments}
                                   onRenderCell={renderCell}/>
                         </div>
                         <div style={{height: '9rem'}}>
                             <TextField style={{fontSize: '16px'}} label={'name'} defaultValue={userName}
                                        onChange={(e: any, value?: string) => setUserName(value ? value : '')}/>
-                            <TextField style={{fontSize: '16px'}} label={'message'}
-                                       onChange={(e: any, value?: string) => setMessage(value ? value : '')}
-                                       onKeyDown={noMessageKeyDown} value={message}
-                                       description={'return to send'}/>
+                            <div style={{display: 'flex'}}>
+                                <div style={{flex: '0 1 auto', alignSelf: 'center'}}>
+                                    <CommandBar items={commandItems}/>
+                                </div>
+                                <div style={{flex: '1 1 auto'}}>
+                                    <TextField style={{fontSize: '16px'}} label={'message'}
+                                               onChange={(e: any, value?: string) => setMessage(value ? value : '')}
+                                               onKeyDown={noMessageKeyDown} value={message}
+                                               description={'return to send'}/>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <Panel dir='ltr'
+                   closeButtonAriaLabel='Close' headerText='Create Channel' isOpen={isOpenCreateChannelPanel}
+                   onDismiss={dismissCreateChannelPanel} type={PanelType.smallFluid}>
+                Hello
+                <TextField onChange={onCreateChannelNameChanged} onKeyDown={onCreateChannelNameKeyDown}
+                           style={{fontSize: '16px'}}/>
+            </Panel>
         </Fabric>
     );
 };
