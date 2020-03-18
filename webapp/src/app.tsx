@@ -117,6 +117,67 @@ const calcWindowSize = (): Partial<CSSProperties> => ({
     right: window.outerWidth - window.innerWidth,
 });
 
+const useChannels = (repo: ChatRepository) => {
+    const [allChannels, setAllChannels] = useState<ChatChannel[]>([]);
+    useEffect(() => {
+        const retryCounter = new RetryCounter();
+        let timeoutHandle: number | undefined = undefined;
+        const abortController = new AbortController();
+
+        const polling = async (channelID: ChannelID): Promise<void> => {
+            try {
+                const data = await repo.retrieveChannelsWithLongPolling(channelID);
+                retryCounter.reset();
+                setAllChannels(prev => prev.concat(data));
+                window.setTimeout(() => polling(data[data.length - 1].channelID), 0);
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    console.log(`abort retrieveChannelsWithLongPolling`);
+                    return;
+                }
+                const timeout = retryCounter.timeoutMilliSec();
+                console.log(`failed to execute retrieveChannelsWithLongPolling. retry: ${timeout}ms, reason: ${e}`);
+                window.setTimeout(() => polling(channelID), timeout);
+            }
+        };
+
+        const task = async (): Promise<void> => {
+            try {
+                const channels = await repo.retrieveChannels(abortController.signal);
+                retryCounter.reset();
+                setAllChannels(channels);
+
+                if (channels.length === 0) {
+                    console.log(`TODO`);
+                    return;
+                }
+
+                // noinspection ES6MissingAwait
+                polling(channels[channels.length - 1].channelID);
+            } catch (e) {
+                if (e.name == 'AbortError') {
+                    console.log(`abort retrieveChannels`);
+                    return;
+                }
+                const timeout = retryCounter.timeoutMilliSec();
+                console.log(`failed to execute retrieveChannels. retry: ${timeout}ms`);
+                timeoutHandle = window.setTimeout(task, timeout);
+            }
+        };
+        // noinspection JSIgnoredPromiseFromCall
+        task();
+        return () => {
+            abortController.abort();
+
+            if (timeoutHandle !== undefined) {
+                window.clearTimeout(timeoutHandle);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    return allChannels;
+};
+
 type useCreateChannelRet = {
     commandItems: ICommandBarItemProps[];
     dismissCreateChannelPanel: () => void;
@@ -125,7 +186,7 @@ type useCreateChannelRet = {
     onCreateChannelNameKeyDown: (ev: KeyboardEvent) => void;
 };
 
-const useCreateChannel = (chat: ChatRepository): useCreateChannelRet => {
+const useCreateChannel = (chat: ChatRepository, onAddChannel?: (channel: ChatChannel) => void): useCreateChannelRet => {
     const [isOpenCreateChannelPanel, setIsOpenCreateChannelPanel] = useState(false);
     const openCreateChannelPanel = useCallback(() => setIsOpenCreateChannelPanel(true), [setIsOpenCreateChannelPanel]);
 
@@ -163,7 +224,10 @@ const useCreateChannel = (chat: ChatRepository): useCreateChannelRet => {
         }
         const task = async (): Promise<void> => {
             try {
-                await chat.addChannel(channelName);
+                const channel = await chat.addChannel(channelName);
+                if (onAddChannel) {
+                    onAddChannel(channel);
+                }
                 dismissCreateChannelPanel();
             } catch (e) {
                 console.log(`failed to add channel: ${e}`);
@@ -171,7 +235,7 @@ const useCreateChannel = (chat: ChatRepository): useCreateChannelRet => {
         };
         // noinspection JSIgnoredPromiseFromCall
         task();
-    }, [chat, channelName, dismissCreateChannelPanel]);
+    }, [chat, channelName, dismissCreateChannelPanel, onAddChannel]);
 
     return {
         commandItems,
@@ -201,7 +265,7 @@ const useWindowSize = () => {
 
 const App = (): FunctionComponentElement<unknown> => {
     const chat = useMemo(() => new ChatRepository(new ChatDataSourceImpl(process.env.GRAPHQL_ENDPOINT)), []);
-    const [allChannels, setAllChannels] = useState<ChatChannel[]>([]);
+    const allChannels = useChannels(chat);
     const [currentChannel, setCurrentChannel] = useState<ChatChannel>();
     const [comments, setComments] = useState<ChatComment[]>([]);
     const initialUserName = localStorage.getItem('userName');
@@ -209,6 +273,7 @@ const App = (): FunctionComponentElement<unknown> => {
     const [message, setMessage] = useState('');
     const windowSize = useWindowSize();
     const [requestScrollCommentListToBottom, setRequestScrollCommentListToBottom] = useState(false);
+    const [addedChannel, setAddedChannel] = useState<ChatChannel>();
     const refCommentList = useRef<List<ChatComment>>(null);
 
     const onSendClick = useCallback(() => {
@@ -252,7 +317,7 @@ const App = (): FunctionComponentElement<unknown> => {
                 setComments(prev => prev.concat(data));
                 window.setTimeout(() => polling(channelID, data[data.length - 1].commentID), 0);
             } catch (e) {
-                if (e.name == 'AbortError') {
+                if (e.name === 'AbortError') {
                     console.log(`abort retrieveCommentsWithLongPolling`);
                     return;
                 }
@@ -279,6 +344,9 @@ const App = (): FunctionComponentElement<unknown> => {
                         refCommentList.current.scrollToIndex(data.length - 1);
                     }
                 }
+
+                // noinspection ES6MissingAwait
+                polling(currentChannel.channelID, latestID);
             } catch (e) {
                 if (e.name == 'AbortError') {
                     console.log(`abort retrieveComments`);
@@ -289,9 +357,6 @@ const App = (): FunctionComponentElement<unknown> => {
                 window.setTimeout(task, timeout);
                 return;
             }
-
-            // noinspection ES6MissingAwait
-            polling(currentChannel.channelID, latestID);
         };
         // noinspection JSIgnoredPromiseFromCall
         task();
@@ -306,47 +371,33 @@ const App = (): FunctionComponentElement<unknown> => {
                 window.clearTimeout(pollingTimeoutHandle);
             }
         }
-    }, [chat, currentChannel, setComments, setCurrentChannel]);
-
-    useEffect(() => {
-        const retryCounter = new RetryCounter();
-        let timeoutHandle: number | undefined = undefined;
-        const abortController = new AbortController();
-        const task = async (): Promise<void> => {
-            try {
-                const channels = await chat.retrieveChannels(abortController.signal);
-                retryCounter.reset();
-                console.log(channels);
-                setAllChannels(channels);
-            } catch (e) {
-                if (e.name == 'AbortError') {
-                    console.log(`abort retrieveChannels`);
-                    return;
-                }
-                const timeout = retryCounter.timeoutMilliSec();
-                console.log(`failed to execute retrieveChannels. retry: ${timeout}ms`);
-                timeoutHandle = window.setTimeout(task, timeout);
-            }
-        };
-        // noinspection JSIgnoredPromiseFromCall
-        task();
-        return () => {
-            abortController.abort();
-
-            if (timeoutHandle !== undefined) {
-                window.clearTimeout(timeoutHandle);
-            }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [chat, currentChannel, setComments]);
 
     useEffect(() => {
         if (allChannels.length == 0) {
             console.log(`TODO:`);
             return;
         }
-        setCurrentChannel(allChannels[0]);
-    }, [allChannels, setCurrentChannel]);
+
+        setCurrentChannel((prev) => {
+            if (!prev) {
+                return allChannels[0];
+            }
+
+            let ch = addedChannel;
+            if (ch) {
+                let id = ch.channelID;
+                let found = allChannels.find((data) => data.channelID === id);
+
+                if (found) {
+                    setAddedChannel(undefined);
+                    return found;
+                }
+            }
+
+            return prev;
+        });
+    }, [addedChannel, allChannels, setCurrentChannel, setAddedChannel]);
 
     useEffect(() => localStorage.setItem("userName", userName), [userName]);
     const noMessageKeyDown = useCallback((ev: KeyboardEvent) => {
@@ -379,13 +430,17 @@ const App = (): FunctionComponentElement<unknown> => {
         }
     }, [allChannels, setCurrentChannel]);
 
+    const onAddChannel = useCallback((channel: ChatChannel) => {
+        setAddedChannel(channel);
+    }, [setAddedChannel]);
+
     const {
         commandItems,
         dismissCreateChannelPanel,
         isOpenCreateChannelPanel,
         onCreateChannelNameChanged,
         onCreateChannelNameKeyDown,
-    } = useCreateChannel(chat);
+    } = useCreateChannel(chat, onAddChannel);
 
     return (
         <Fabric>
@@ -395,7 +450,8 @@ const App = (): FunctionComponentElement<unknown> => {
             }}>
                 <div className='ms-Grid-row'>
                     <div className='ms-Grid-col ms-hiddenLgDown ms-xl2'>
-                        <Nav groups={channelListItem} onLinkClick={onClickNav} selectedKey={currentChannel?.channelID}/>
+                        <Nav groups={channelListItem} onLinkClick={onClickNav} selectedKey={currentChannel?.channelID}
+                             styles={{root: {height: windowSize.innerHeight}}}/>
                     </div>
                     <div className='ms-Grid-col ms-lg12 ms-xl10' style={{padding: 0}}>
                         <div className={listContainerClass} data-is-scrollable="true"

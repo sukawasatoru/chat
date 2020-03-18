@@ -16,6 +16,7 @@
 
 import {ChatDataSource} from '@/data/api/chat-data-source';
 import {ChannelID, ChatChannel, ChatComment, CommentID} from '@/model/chat-models';
+import {Simulate} from "react-dom/test-utils";
 
 export class ChatRepository {
     private readonly dataSource: ChatDataSource;
@@ -38,6 +39,11 @@ export class ChatRepository {
     async retrieveChannels(abortSignal?: AbortSignal): Promise<ChatChannel[]> {
         return (await this.dataSource.retrieveChannels(abortSignal))
             .data.channels.map(({id, name}) => new ChatChannel({channelID: id as ChannelID, name}));
+    }
+
+    async retrieveChannelsWithLongPolling(channelID: ChannelID, abortSignal?: AbortSignal): Promise<ChatChannel[]> {
+        return (await this.dataSource.retrieveChannelsWithLongPolling(channelID, abortSignal))
+            .data.channelLongPolling.map(({id, name}) => new ChatChannel({channelID: id as ChannelID, name}));
     }
 
     async retrieveComments(channelID: ChannelID, abortSignal?: AbortSignal): Promise<ChatComment[]> {

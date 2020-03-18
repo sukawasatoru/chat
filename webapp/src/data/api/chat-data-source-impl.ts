@@ -18,6 +18,7 @@ import {
     AddChannelResponse,
     AddCommentResponse,
     ChannelsResponse,
+    ChannelsWithLongPollingResponse,
     ChatDataSource,
     CommentsResponse,
     RetrieveCommentsWithLongPollingResponse
@@ -99,6 +100,24 @@ mutation($channelId: ID!, $name: String!, $message: String!) {
 
         return await response.json();
     }
+
+    async retrieveChannelsWithLongPolling(channelID: ChannelID, abortSignal?: AbortSignal): Promise<ChannelsWithLongPollingResponse> {
+        const response = await graphQLRequest(this.graphQLURL, `
+query($id: ID!) {
+  channelLongPolling(id: $id, orderBy: { direction: ASC }) {
+    id
+    name
+  }
+}`, {id: channelID}, abortSignal);
+
+        if (!response.ok) {
+            console.log(response);
+            throw new Error(`failed long polling for channel`);
+        }
+
+        return response.json();
+    }
+
 
     async retrieveComments(channelID: ChannelID, abortSignal?: AbortSignal): Promise<CommentsResponse> {
         const response = await graphQLRequest(this.graphQLURL, `

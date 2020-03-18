@@ -38,8 +38,12 @@ impl DevFlexChatRepository {
         })
     }
 
+    pub fn channel_long_polling(&self) -> Fallible<ChannelEntity> {
+        self.database.channel_long_polling()
+    }
+
     pub fn channels(&self) -> Fallible<Vec<ChannelEntity>> {
-        self.database.channels()
+        self.database.channels_created_asc()
     }
 
     pub fn database_version(&self) -> Fallible<(Version, u16)> {
@@ -48,6 +52,15 @@ impl DevFlexChatRepository {
 
     pub fn find_channel<T: AsRef<ChannelID>>(&self, id: T) -> Fallible<Option<ChannelEntity>> {
         self.database.find_channel(id)
+    }
+
+    pub fn retrieve_channel_after_long_polling<T: AsRef<ChannelID>>(
+        &self,
+        id: T,
+        order_direction: &OrderDirection,
+    ) -> Fallible<Vec<ChannelEntity>> {
+        self.database
+            .channels_after_long_polling(id.as_ref(), order_direction)
     }
 
     pub fn retrieve_first(

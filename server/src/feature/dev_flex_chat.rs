@@ -18,6 +18,7 @@ use std::convert::TryInto;
 
 use juniper::{graphql_value, FieldError, FieldResult, GraphQLInputObject, GraphQLObject, ID};
 use log::warn;
+use uuid::Uuid;
 
 use crate::data::db::entity::dev_flex_chat_entity::{
     ChannelEntity, ChannelID, CommentEntity, CommentID,
@@ -39,6 +40,11 @@ pub struct ChannelInput {
 pub struct ChannelResponse {
     pub id: ID,
     pub name: String,
+}
+
+#[derive(Debug, juniper::GraphQLInputObject)]
+pub struct ChannelOrder {
+    direction: OrderDirection,
 }
 
 #[derive(Debug, juniper::GraphQLInputObject)]
@@ -116,12 +122,7 @@ impl Channel {
     ) -> FieldResult<Vec<Comment>> {
         match id {
             Some(id) => {
-                let id = id.parse().map_err(|e| {
-                    FieldError::new(
-                        e,
-                        graphql_value!({"internal_error": "failed to convert to UUID"}),
-                    )
-                })?;
+                let id = convert_id_to_uuid(&id)?;
                 Ok(context
                     .chat_repo
                     .retrieve_after_long_polling(&self.id, &CommentID(id), &order_by.direction)
@@ -158,6 +159,45 @@ impl Channel {
                     message: entity.message,
                 })?]),
         }
+    }
+}
+
+pub fn channel_long_polling(
+    repo: &DevFlexChatRepository,
+    id: Option<ID>,
+    order_by: ChannelOrder,
+) -> FieldResult<Vec<Channel>> {
+    match id {
+        Some(id) => Ok(repo
+            .retrieve_channel_after_long_polling(
+                ChannelID::from(convert_id_to_uuid(&id)?),
+                &order_by.direction,
+            )
+            .map_err(|e| {
+                FieldError::new(
+                    e,
+                    graphql_value!({"internal_error": "failed channel long polling"}),
+                )
+            })?
+            .into_iter()
+            .map(|entity| Channel {
+                id: entity.id,
+                name: entity.name,
+            })
+            .collect::<Vec<_>>()),
+        None => Ok(vec![repo
+            .channel_long_polling()
+            .map_err(|e| {
+                FieldError::new(
+                    e,
+                    graphql_value!({
+                "internal_error": "failed long polling for channel"}),
+                )
+            })
+            .map(|entity| Channel {
+                id: entity.id,
+                name: entity.name,
+            })?]),
     }
 }
 
@@ -234,5 +274,14 @@ pub fn add_comment(
         id: id.to_string().into(),
         name: comment.name,
         message: comment.message,
+    })
+}
+
+fn convert_id_to_uuid(id: &ID) -> FieldResult<Uuid> {
+    id.parse().map_err(|e| {
+        FieldError::new(
+            e,
+            graphql_value!({"internal_error": "failed to convert to UUID"}),
+        )
     })
 }

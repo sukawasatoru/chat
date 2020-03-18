@@ -36,6 +36,7 @@ const FLUSH_CODE: u16 = 0;
 
 pub struct DevFlexChatDatabase {
     database_path: PathBuf,
+    channel_senders: Mutex<Vec<Sender<ChannelEntity>>>,
     comment_senders: Mutex<HashMap<ChannelID, Vec<Sender<CommentEntity>>>>,
 }
 
@@ -62,6 +63,7 @@ impl DevFlexChatDatabase {
     pub fn create<T: Into<PathBuf>>(database_path: T) -> Fallible<Self> {
         let db = Self {
             database_path: database_path.into(),
+            channel_senders: Default::default(),
             comment_senders: Default::default(),
         };
 
@@ -90,7 +92,46 @@ impl DevFlexChatDatabase {
         Ok(db)
     }
 
-    pub fn channels(&self) -> Fallible<Vec<ChannelEntity>> {
+    pub fn channel_long_polling(&self) -> Fallible<ChannelEntity> {
+        let (tx, rx) = channel();
+        match self.channel_senders.lock() {
+            Ok(mut senders) => senders.push(tx),
+            Err(e) => failure::bail!("failed to long polling: {:?}", e),
+        }
+
+        Ok(rx.recv()?)
+    }
+
+    pub fn channels_after_created_asc(
+        &self,
+        channel_id: &ChannelID,
+    ) -> Fallible<Vec<ChannelEntity>> {
+        let channels = self.channels_created_asc()?;
+        for (index, channel) in channels.iter().enumerate() {
+            if &channel.id == channel_id {
+                return Ok(channels[index + 1..].to_vec());
+            }
+        }
+
+        failure::bail!("id not found: {:?}", channel_id)
+    }
+
+    pub fn channels_after_long_polling(
+        &self,
+        channel_id: &ChannelID,
+        _order_direction: &OrderDirection,
+    ) -> Fallible<Vec<ChannelEntity>> {
+        // TODO: use order.
+
+        let channels = self.channels_after_created_asc(channel_id)?;
+        if !channels.is_empty() {
+            return Ok(channels);
+        }
+
+        Ok(vec![self.channel_long_polling()?])
+    }
+
+    pub fn channels_created_asc(&self) -> Fallible<Vec<ChannelEntity>> {
         Ok(self.retrieve()?.channels)
     }
 
@@ -124,6 +165,16 @@ impl DevFlexChatDatabase {
         let file = std::fs::File::create(&self.database_path)?;
         let mut writer = BufWriter::new(file);
         writer.write_all(&toml::to_vec(&table)?)?;
+
+        match self.channel_senders.lock() {
+            Ok(mut senders) => {
+                for tx in senders.iter() {
+                    tx.send(entity.clone())?;
+                }
+                senders.clear();
+            }
+            Err(e) => failure::bail!("failed to send entity: {:?}", e),
+        }
 
         Ok(())
     }

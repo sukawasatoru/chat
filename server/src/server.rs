@@ -26,7 +26,7 @@ use url::Url;
 
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
 use crate::feature::dev_flex_chat::{
-    self, Channel, ChannelInput, ChannelResponse, CommentInput, CommentResponse,
+    self, Channel, ChannelInput, ChannelOrder, ChannelResponse, CommentInput, CommentResponse,
 };
 use crate::model::juniper_object::Context;
 use crate::prelude::*;
@@ -48,6 +48,18 @@ impl Default for Query {
 
 #[juniper::object(Context = Context)]
 impl Query {
+    fn channel_long_polling(
+        &self,
+        context: &Context,
+        id: Option<ID>,
+        order_by: ChannelOrder,
+    ) -> FieldResult<Vec<Channel>> {
+        dev_flex_chat::channel_long_polling(&context.chat_repo, id, order_by).map_err(|e| {
+            warn!("failed to poll channel: {:?}", e);
+            e
+        })
+    }
+
     fn channel(&self, context: &Context, id: ID) -> FieldResult<Option<Channel>> {
         dev_flex_chat::channel(&context.chat_repo, id).map_err(|e| {
             warn!("failed to find channel: {:?}", e);

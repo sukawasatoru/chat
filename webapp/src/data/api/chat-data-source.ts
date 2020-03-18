@@ -45,6 +45,15 @@ export type ChannelsResponse = {
     };
 }
 
+export type ChannelsWithLongPollingResponse = {
+    data: {
+        channelLongPolling: {
+            id: string;
+            name: string;
+        }[];
+    };
+}
+
 export type CommentsResponse = {
     data: {
         channel: {
@@ -75,6 +84,8 @@ export interface ChatDataSource {
     addComment(channelID: ChannelID, userName: string, message: string, abortSignal?: AbortSignal): Promise<AddCommentResponse>;
 
     retrieveChannels(abortSignal?: AbortSignal): Promise<ChannelsResponse>;
+
+    retrieveChannelsWithLongPolling(channelID: ChannelID, abortSignal?: AbortSignal): Promise<ChannelsWithLongPollingResponse>
 
     retrieveComments(channelID: ChannelID, abortSignal?: AbortSignal): Promise<CommentsResponse>;
 

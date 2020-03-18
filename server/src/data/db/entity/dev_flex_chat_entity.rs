@@ -15,6 +15,7 @@
  */
 
 use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CommentID(pub uuid::Uuid);
@@ -32,6 +33,12 @@ pub struct CommentEntity {
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ChannelID(pub uuid::Uuid);
+
+impl From<uuid::Uuid> for ChannelID {
+    fn from(id: Uuid) -> Self {
+        ChannelID(id)
+    }
+}
 
 impl AsRef<ChannelID> for ChannelID {
     fn as_ref(&self) -> &ChannelID {
