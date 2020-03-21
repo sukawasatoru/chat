@@ -23,7 +23,7 @@ juniper_hyper = "=0.5.2"
 log = "=0.4.8"
 
 # v0.9.x for juniper v0.14.x
-reqwest = "=0.9.24"
+reqwest = "=0.10.4"
 serde = "=1.0.104"
 serde_derive = "=1.0.104"
 serde_json = "=1.0.48"
