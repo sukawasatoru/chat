@@ -11,7 +11,7 @@ repository = "https://github.com/sukawasatoru/chat.git"
 [dependencies]
 dotenv = "=0.15.0"
 env_logger = "=0.7.1"
-failure = "=0.1.6"
+failure = "=0.1.7"
 
 # v0.1.x for juniper v0.14.x
 futures = "=0.1.29"
