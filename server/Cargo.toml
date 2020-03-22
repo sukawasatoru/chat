@@ -17,7 +17,7 @@ failure = "=0.1.7"
 futures = "=0.1.29"
 
 # v0.12.x for juniper v0.14.x
-hyper = "=0.12.35"
+hyper = "=0.13.4"
 juniper = "=0.14.2"
 juniper_hyper = "=0.5.2"
 log = "=0.4.8"
