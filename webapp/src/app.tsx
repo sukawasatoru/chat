@@ -17,11 +17,13 @@
 import '@/app.css';
 import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
+import BrowseChannels from '@/feature/browse-channels';
 import {ChannelID, ChatChannel, ChatComment, CommentID} from '@/model/chat-models';
 import {
     CommandBar,
     Fabric,
     ICommandBarItemProps,
+    IContextualMenuItem,
     INavLink,
     INavLinkGroup,
     initializeIcons,
@@ -36,7 +38,6 @@ import {
 } from 'office-ui-fabric-react';
 import 'office-ui-fabric-react/dist/css/fabric.min.css'
 import {
-    CSSProperties,
     default as React,
     FunctionComponentElement,
     KeyboardEvent,
@@ -109,15 +110,25 @@ const listContainerClass = mergeStyles({
     overflowY: 'auto',
 });
 
-const calcWindowSize = (): Partial<CSSProperties> => ({
-    position: 'absolute',
-    top: 0,
-    bottom: window.outerHeight - window.innerHeight,
-    left: 0,
-    right: window.outerWidth - window.innerWidth,
-});
+const useBrowseChannels = () => {
+    const [isOpenBrowseChannelsPanel, setIsOpenBrowseChannelsPanel] = useState(false);
+    const openBrowseChannelsPanel = useCallback(() => setIsOpenBrowseChannelsPanel(true), [setIsOpenBrowseChannelsPanel]);
+    const dismissBrowseChannelsPanel = useCallback(() => setIsOpenBrowseChannelsPanel(false), [setIsOpenBrowseChannelsPanel]);
 
-const useChannels = (repo: ChatRepository) => {
+    const browseChannelsCommandItems: IContextualMenuItem[] = useMemo(() => [{
+        key: 'browse-channels',
+        text: 'Browse Channels',
+        onClick: openBrowseChannelsPanel,
+    }], [openBrowseChannelsPanel]);
+
+    return {
+        browseChannelsCommandItems,
+        dismissBrowseChannelsPanel,
+        isOpenBrowseChannelsPanel,
+    }
+};
+
+const useChannels = (repo: ChatRepository): ChatChannel[] => {
     const [allChannels, setAllChannels] = useState<ChatChannel[]>([]);
     useEffect(() => {
         const retryCounter = new RetryCounter();
@@ -179,7 +190,7 @@ const useChannels = (repo: ChatRepository) => {
 };
 
 type useCreateChannelRet = {
-    commandItems: ICommandBarItemProps[];
+    commandItems: IContextualMenuItem[];
     dismissCreateChannelPanel: () => void;
     isOpenCreateChannelPanel: boolean;
     onCreateChannelNameChanged: (ev: any, newValue?: string) => void;
@@ -189,25 +200,13 @@ type useCreateChannelRet = {
 const useCreateChannel = (chat: ChatRepository, onAddChannel?: (channel: ChatChannel) => void): useCreateChannelRet => {
     const [isOpenCreateChannelPanel, setIsOpenCreateChannelPanel] = useState(false);
     const openCreateChannelPanel = useCallback(() => setIsOpenCreateChannelPanel(true), [setIsOpenCreateChannelPanel]);
-
     const dismissCreateChannelPanel = useCallback(() => setIsOpenCreateChannelPanel(false), [setIsOpenCreateChannelPanel]);
 
-    const commandItems: ICommandBarItemProps[] = [{
-        key: 'menu',
-        text: 'menu',
-        iconProps: {
-            iconName: 'GlobalNavButton',
-        },
-        subMenuProps: {
-            items: [
-                {
-                    key: 'create-channel',
-                    text: 'Create Channel',
-                    onClick: openCreateChannelPanel,
-                },
-            ]
-        }
-    }];
+    const commandItems: IContextualMenuItem[] = useMemo(() => [{
+        key: 'create-channel',
+        text: 'Create Channel',
+        onClick: openCreateChannelPanel,
+    }], [openCreateChannelPanel]);
 
     const [channelName, setChannelName] = useState('');
     const onCreateChannelNameChanged = useCallback((ev: any, newValue?: string): void => {
@@ -435,12 +434,33 @@ const App = (): FunctionComponentElement<unknown> => {
     }, [setAddedChannel]);
 
     const {
-        commandItems,
+        commandItems: createChannelCommandItems,
         dismissCreateChannelPanel,
         isOpenCreateChannelPanel,
         onCreateChannelNameChanged,
         onCreateChannelNameKeyDown,
     } = useCreateChannel(chat, onAddChannel);
+
+    const {
+        browseChannelsCommandItems,
+        dismissBrowseChannelsPanel,
+        isOpenBrowseChannelsPanel,
+    } = useBrowseChannels();
+    const onClickBrowseChannelsChannel = useCallback((channel: ChatChannel) => {
+        setCurrentChannel(channel);
+        dismissBrowseChannelsPanel();
+    }, [dismissBrowseChannelsPanel, setCurrentChannel]);
+
+    const commandItems: ICommandBarItemProps[] = useMemo(() => [{
+        key: 'menu',
+        text: 'menu',
+        iconProps: {
+            iconName: 'GlobalNavButton',
+        },
+        subMenuProps: {
+            items: createChannelCommandItems.concat(browseChannelsCommandItems),
+        }
+    }], [browseChannelsCommandItems, createChannelCommandItems]);
 
     return (
         <Fabric>
@@ -484,6 +504,8 @@ const App = (): FunctionComponentElement<unknown> => {
                 <TextField onChange={onCreateChannelNameChanged} onKeyDown={onCreateChannelNameKeyDown}
                            style={{fontSize: '16px'}}/>
             </Panel>
+            <BrowseChannels channels={allChannels} isOpen={isOpenBrowseChannelsPanel}
+                            onClickChannel={onClickBrowseChannelsChannel} onDismiss={dismissBrowseChannelsPanel}/>
         </Fabric>
     );
 };
