@@ -1,6 +1,6 @@
 [package]
 name = "chat"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
 edition = "2018"
 description = "Chat server"

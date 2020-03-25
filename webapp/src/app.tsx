@@ -19,6 +19,7 @@ import {ChatDataSourceImpl} from '@/data/api/chat-data-source-impl';
 import {ChatRepository} from '@/data/repository/chat-repository';
 import BrowseChannels from '@/feature/browse-channels';
 import {ChannelID, ChatChannel, ChatComment, CommentID} from '@/model/chat-models';
+import 'office-ui-fabric-core/dist/css/fabric.min.css';
 import {
     CommandBar,
     Fabric,
@@ -36,7 +37,6 @@ import {
     Text,
     TextField,
 } from 'office-ui-fabric-react';
-import 'office-ui-fabric-react/dist/css/fabric.min.css'
 import {
     default as React,
     FunctionComponentElement,
