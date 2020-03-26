@@ -24,10 +24,13 @@ use juniper::{FieldResult, ID};
 use log::{error, info, warn};
 use url::Url;
 
+use crate::data::db::user_data_source_impl::UserDataSourceImpl;
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
+use crate::data::repository::user_repository::UserRepository;
 use crate::feature::dev_flex_chat::{
     self, Channel, ChannelInput, ChannelOrder, ChannelResponse, CommentInput, CommentResponse,
 };
+use crate::feature::user::{self, UserInput, UserResponse};
 use crate::model::juniper_object::Context;
 use crate::prelude::*;
 
@@ -73,6 +76,10 @@ impl Query {
             e
         })
     }
+
+    fn user(context: &Context, id: ID) -> FieldResult<Option<user::User>> {
+        user::user(&context.user_repo, id)
+    }
 }
 
 struct Mutation {
@@ -110,16 +117,28 @@ impl Mutation {
             }
         }
     }
+
+    fn add_user(&self, context: &Context, user: UserInput) -> FieldResult<UserResponse> {
+        match user::add_user(&context.user_repo, user) {
+            Ok(data) => Ok(data),
+            Err(e) => {
+                warn!("failed to execute the add_user: {:?}", e);
+                Err(e)
+            }
+        }
+    }
 }
 
 pub fn server(database: Option<PathBuf>, address: String, hostname: String) -> Fallible<()> {
-    let database_path = crate::util::get_database_file_path(database);
+    let database_path = crate::util::get_database_path(database);
     let socket_address = address.parse()?;
     info!("database_path: {:?}", database_path);
     info!("socket_address: {:?}", socket_address);
-    let chat_repo = DevFlexChatRepository::prepare(database_path)?;
 
-    let context = Arc::new(Context::new(chat_repo));
+    let context = Arc::new(Context::new(
+        DevFlexChatRepository::prepare(database_path.to_owned())?,
+        UserRepository::prepare(Box::new(UserDataSourceImpl::create(database_path)?))?,
+    ));
     let root_node = Arc::new(juniper::RootNode::new(
         Query::default(),
         Mutation::default(),

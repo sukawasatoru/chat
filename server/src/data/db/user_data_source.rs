@@ -13,3 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::prelude::*;
+use serde_derive::{Deserialize, Serialize};
+
+#[derive(Deserialize, Serialize)]
+pub struct UserEntity {
+    pub id: String,
+    pub display_name: String,
+    pub email_addresses: Vec<String>,
+}
+
+pub trait UserDataSource: Send + Sync {
+    fn find_user(&self, id: &str) -> Fallible<Option<UserEntity>>;
+
+    fn find_user_by_emails(&self, emails: &[&str]) -> Fallible<Vec<UserEntity>>;
+
+    fn save_user(&self, user: UserEntity) -> Fallible<()>;
+}

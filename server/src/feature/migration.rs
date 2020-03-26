@@ -19,11 +19,11 @@ use std::path::{Path, PathBuf};
 
 use log::info;
 
-use crate::data::db::dev_flex_chat_database::{
-    convert_to_version, convert_to_version_code, generate_latest_database_version,
-};
+use crate::data::db::dev_flex_chat_database::generate_latest_database_version;
 use crate::data::db::entity::dev_flex_chat_entity::{ChannelEntity, ChannelID};
+use crate::data::db::util::{convert_to_version, convert_to_version_code};
 use crate::prelude::*;
+use crate::util::{get_chat_database_file_path, get_database_path, get_user_database_file_path};
 
 pub fn migration(database_dir: Option<PathBuf>) -> Fallible<()> {
     let (current_version, current_version_flush_code) = generate_latest_database_version()?;
@@ -35,31 +35,69 @@ pub fn migration(database_dir: Option<PathBuf>) -> Fallible<()> {
         current_version, current_version_flush_code
     );
 
-    let database_file_path = crate::util::get_database_file_path(database_dir);
-    let database_version_code = retrieve_database_version_code(&database_file_path)?;
-    let (database_version, database_flush_code) = convert_to_version(database_version_code);
+    let database_dir = get_database_path(database_dir);
 
-    info!(
-        "database version: {}, flush_code: {}",
-        database_version, database_flush_code
-    );
+    let chat_database_file_path = get_chat_database_file_path(database_dir.to_owned());
+    let chat_database_version_code = if chat_database_file_path.exists() {
+        let version_code = retrieve_database_version_code(&chat_database_file_path)?;
 
-    if current_version_code < database_version_code {
-        failure::bail!("need to upgrade the app to migrate")
+        let (version, flush_code) = convert_to_version(version_code);
+        info!(
+            "chat database version: {}, flush_code: {}",
+            version, flush_code
+        );
+
+        version_code
+    } else {
+        info!("chat database does not exist");
+        current_version_code
+    };
+
+    let user_database_file_path = get_user_database_file_path(database_dir);
+    let user_database_version_code = if user_database_file_path.exists() {
+        let version_code = retrieve_database_version_code(&user_database_file_path)?;
+
+        let (version, flush_code) = convert_to_version(version_code);
+        info!(
+            "user database version: {}, flush_code: {}",
+            version, flush_code
+        );
+
+        version_code
+    } else {
+        info!("user database does not exist");
+        current_version_code
+    };
+
+    if current_version_code < chat_database_version_code
+        || current_version_code < user_database_version_code
+    {
+        failure::bail!("need to upgrade the app")
     }
 
-    let map = [(convert_to_version_code(&[0, 3, 0].into(), 0), migrate_0_3_0)];
+    let map = [(
+        convert_to_version_code(&[0, 3, 0].into(), 0),
+        migrate_chat_0_3_0,
+    )];
+
     if current_version_code < map[map.len() - 1].0 {
         failure::bail!("need to update a version in Cargo");
     }
 
     for (target_code, ref f) in &map {
-        if database_version_code < *target_code {
-            f(&database_file_path)?;
+        if chat_database_version_code < *target_code {
+            f(&chat_database_file_path)?;
         }
     }
 
-    set_database_version_code(database_file_path, current_version_code)?;
+    if chat_database_file_path.exists() {
+        set_database_version_code(chat_database_file_path, current_version_code)?;
+    }
+
+    if user_database_file_path.exists() {
+        set_database_version_code(user_database_file_path, current_version_code)?;
+    }
+
     Ok(())
 }
 
@@ -95,7 +133,7 @@ fn read_file_as_toml_value<T: AsRef<Path>>(file_path: T) -> Fallible<toml::Value
     Ok(toml::from_str(&data)?)
 }
 
-fn migrate_0_3_0(file_path: &Path) -> Fallible<()> {
+fn migrate_chat_0_3_0(file_path: &Path) -> Fallible<()> {
     info!("migrate to v0.3.0");
 
     let mut table = read_file_as_toml_value(file_path)?;

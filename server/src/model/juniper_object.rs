@@ -15,9 +15,11 @@
  */
 
 use crate::data::repository::dev_flex_chat_repository::DevFlexChatRepository;
+use crate::data::repository::user_repository::UserRepository;
 
 pub struct Context {
     pub chat_repo: DevFlexChatRepository,
+    pub user_repo: UserRepository,
 }
 
 impl juniper::Context for Context {
@@ -25,8 +27,11 @@ impl juniper::Context for Context {
 }
 
 impl Context {
-    pub fn new(chat_repo: DevFlexChatRepository) -> Self {
-        Self { chat_repo }
+    pub fn new(chat_repo: DevFlexChatRepository, user_repo: UserRepository) -> Self {
+        Self {
+            chat_repo,
+            user_repo,
+        }
     }
 }
 

@@ -31,7 +31,7 @@ pub struct DevFlexChatRepository {
 
 impl DevFlexChatRepository {
     pub fn prepare<T: Into<PathBuf>>(database_path: T) -> Fallible<Self> {
-        let database_path = database_path.into();
+        let database_path = crate::util::get_chat_database_file_path(database_path.into());
 
         Ok(Self {
             database: DevFlexChatDatabase::create(database_path)?,

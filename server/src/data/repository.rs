@@ -15,3 +15,4 @@
  */
 
 pub mod dev_flex_chat_repository;
+pub mod user_repository;

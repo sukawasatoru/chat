@@ -16,3 +16,4 @@
 
 pub(crate) mod dev_flex_chat;
 pub mod migration;
+pub(crate) mod user;

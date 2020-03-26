@@ -16,3 +16,6 @@
 
 pub mod dev_flex_chat_database;
 pub mod entity;
+pub mod user_data_source;
+pub mod user_data_source_impl;
+pub mod util;

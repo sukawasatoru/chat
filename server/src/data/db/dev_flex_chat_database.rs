@@ -27,6 +27,7 @@ use serde_derive::{Deserialize, Serialize};
 use crate::data::db::entity::dev_flex_chat_entity::{
     ChannelEntity, ChannelID, CommentEntity, CommentID,
 };
+use crate::data::db::util::{convert_to_version, convert_to_version_code};
 use crate::model::juniper_object::OrderDirection;
 use crate::model::version::Version;
 use crate::prelude::*;
@@ -135,6 +136,7 @@ impl DevFlexChatDatabase {
         Ok(self.retrieve()?.channels)
     }
 
+    //noinspection DuplicatedCode
     pub fn database_version(&self) -> Fallible<(Version, u16)> {
         let file = std::fs::File::open(&self.database_path)?;
         let mut reader = BufReader::new(file);
@@ -313,61 +315,6 @@ impl DevFlexChatDatabase {
     }
 }
 
-pub fn convert_to_version_code(version: &Version, flush_code: u16) -> u64 {
-    // flush:                                                 1111111111111111
-    // patch:                                 11111111111111110000000000000000
-    // minor:                 111111111111111100000000000000000000000000000000
-    // major: 1111111111111111000000000000000000000000000000000000000000000000
-    //        FF              FF              FF              FF
-    let version = version;
-    ((version.major as u64) << 48)
-        + ((version.minor as u64) << 32)
-        + ((version.patch as u64) << 16)
-        + flush_code as u64
-}
-
-pub fn convert_to_version(version_code: u64) -> (Version, u16) {
-    let mut version_code = version_code;
-    let mask = 0b1111_1111_1111_1111;
-
-    let flush_code = (version_code & mask) as u16;
-    version_code >>= 16;
-    let patch = (version_code & mask) as u16;
-    version_code >>= 16;
-    let minor = (version_code & mask) as u16;
-    version_code >>= 16;
-    let major = version_code as u16;
-
-    ([major, minor, patch].into(), flush_code)
-}
-
 pub fn generate_latest_database_version() -> Fallible<(Version, u16)> {
     Ok((env!("CARGO_PKG_VERSION").parse()?, FLUSH_CODE))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_convert_to_version_code_max() {
-        assert_eq!(
-            convert_to_version_code(
-                &[std::u16::MAX, std::u16::MAX, std::u16::MAX].into(),
-                std::u16::MAX,
-            ),
-            std::u64::MAX
-        );
-    }
-
-    #[test]
-    fn test_convert_to_version_max() {
-        assert_eq!(
-            convert_to_version(std::u64::MAX),
-            (
-                [std::u16::MAX, std::u16::MAX, std::u16::MAX].into(),
-                std::u16::MAX
-            )
-        )
-    }
 }

@@ -14,6 +14,16 @@
  * limitations under the License.
  */
 
-pub(crate) mod hello_model;
 pub(crate) mod juniper_object;
 pub(crate) mod version;
+
+#[derive(Clone)]
+pub struct UserID(pub String);
+
+pub struct Email(pub String);
+
+pub struct User {
+    pub id: UserID,
+    pub display_name: String,
+    pub email_addresses: Vec<Email>,
+}

@@ -16,8 +16,14 @@
 
 use std::path::PathBuf;
 
-pub fn get_database_file_path(database_path: Option<PathBuf>) -> PathBuf {
-    database_path
-        .map(|dir| dir.join("database.toml"))
-        .unwrap_or_else(|| std::path::Path::new("database.toml").to_owned())
+pub fn get_database_path(database_path: Option<PathBuf>) -> PathBuf {
+    database_path.unwrap_or_else(|| std::path::Path::new(".").to_owned())
+}
+
+pub fn get_chat_database_file_path(database_path: PathBuf) -> PathBuf {
+    database_path.join("database.toml")
+}
+
+pub fn get_user_database_file_path(database_path: PathBuf) -> PathBuf {
+    database_path.join("user.toml")
 }
