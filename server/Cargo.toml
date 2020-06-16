@@ -27,7 +27,7 @@ reqwest = "=0.9.24"
 serde = "=1.0.104"
 serde_derive = "=1.0.104"
 serde_json = "=1.0.48"
-structopt = "=0.3.12"
+structopt = "=0.3.15"
 toml = "=0.5.6"
 
 [dependencies.chrono]
