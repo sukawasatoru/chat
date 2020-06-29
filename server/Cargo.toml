@@ -26,7 +26,7 @@ log = "=0.4.8"
 reqwest = "=0.9.24"
 serde = "=1.0.104"
 serde_derive = "=1.0.104"
-serde_json = "=1.0.48"
+serde_json = "=1.0.56"
 structopt = "=0.3.12"
 toml = "=0.5.6"
 
