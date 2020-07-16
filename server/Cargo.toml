@@ -20,7 +20,7 @@ futures = "=0.1.29"
 hyper = "=0.12.35"
 juniper = "=0.14.2"
 juniper_hyper = "=0.5.2"
-log = "=0.4.8"
+log = "=0.4.11"
 
 # v0.9.x for juniper v0.14.x
 reqwest = "=0.9.24"
